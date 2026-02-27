@@ -1,0 +1,1309 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>🎮 Jogos & Tickets</title>
+    <meta name="theme-color" content="#0a0015">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', 'Segoe UI', Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+
+        html, body {
+            background: linear-gradient(180deg,#0a0015 0%,#060010 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        body {
+            padding-bottom: 40px;
+        }
+
+        /* ===== LOADING ===== */
+        #loadingOverlay {
+            position: fixed; inset: 0;
+            background: linear-gradient(145deg, #0a0015, #12002a);
+            z-index: 9999; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; color: white; gap: 18px;
+        }
+        #loadingOverlay .load-emoji { font-size: 58px; animation: pulse 1.2s ease-in-out infinite; }
+        @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+
+        /* ===== TOAST ===== */
+        #toast {
+            position: fixed; top: 20px; left: 50%;
+            transform: translateX(-50%) translateY(-30px);
+            background: linear-gradient(135deg, #4dd0ff, #0099ff);
+            color: white;
+            padding: 13px 26px; border-radius: 30px;
+            font-size: 14px; font-weight: 700; z-index: 9998;
+            opacity: 0; transition: opacity 0.3s, transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+            pointer-events: none; white-space: nowrap;
+            box-shadow: 0 6px 24px rgba(0,0,0,0.25);
+        }
+        #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+        /* ===== SPINNER ===== */
+        .spinner {
+            width: 40px; height: 40px;
+            border: 4px solid rgba(255,255,255,0.25);
+            border-top-color: white; border-radius: 50%;
+            animation: spin 0.75s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ===== HEADER ===== */
+        #header {
+            padding: 16px 18px 14px;
+            background: rgba(0,0,0,0.5);
+            border-bottom: 1px solid rgba(255,255,255,0.07);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+
+        #header .title-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+        }
+
+        /* ===== LOGIN FORM ===== */
+        #loginArea {
+            max-width: 420px;
+            margin: 60px auto 0;
+            padding: 0 20px;
+        }
+        #loginArea h2 {
+            color: white;
+            font-size: 22px;
+            font-weight: 800;
+            text-align: center;
+            margin-bottom: 8px;
+        }
+        #loginArea p {
+            color: rgba(255,255,255,0.5);
+            font-size: 13px;
+            text-align: center;
+            margin-bottom: 28px;
+        }
+        #loginArea input {
+            width: 100%;
+            padding: 15px 18px;
+            background: rgba(255,255,255,0.08);
+            border: 1.5px solid rgba(255,255,255,0.15);
+            border-radius: 16px;
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            outline: none;
+            margin-bottom: 14px;
+        }
+        #loginArea input::placeholder { color: rgba(255,255,255,0.3); }
+        #loginArea button {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #f1c40f, #e67e22);
+            color: #1a0a00;
+            border: none;
+            border-radius: 16px;
+            font-size: 16px;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 8px 24px rgba(241,196,15,0.4);
+        }
+
+        /* ===== MAIN CONTENT ===== */
+        #mainContent {
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 16px 14px 60px;
+            display: none;
+        }
+
+        /* Grid de jogos e seções */
+        #gridJogos { display: block; }
+        #jogoRoleta, #jogoCacaNiquel, #jogoMina, #jogoCrash { display: none; }
+    </style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loadingOverlay">
+    <div class="load-emoji">🎮</div>
+    <div class="spinner"></div>
+    <div style="font-size:15px;font-weight:700;color:rgba(255,255,255,0.7);">Carregando jogos...</div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Toast ticket ganho -->
+<div id="ticketToast" style="position:fixed;bottom:60px;left:50%;transform:translateX(-50%) translateY(30px);background:linear-gradient(135deg,#f1c40f,#e67e22);color:#1a0a00;padding:14px 24px;border-radius:30px;font-size:14px;font-weight:800;z-index:9999;opacity:0;transition:opacity 0.4s,transform 0.4s cubic-bezier(0.34,1.56,0.64,1);pointer-events:none;white-space:nowrap;box-shadow:0 8px 30px rgba(241,196,15,0.5);"></div>
+
+<!-- Header -->
+<div id="header">
+    <div style="width:40px;display:flex;align-items:center;justify-content:flex-start;">
+        <button id="btnCardapio" onclick="voltarCardapio()" style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.15);color:white;width:36px;height:36px;border-radius:11px;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;">‹</button>
+        <button id="btnVoltar" onclick="voltarGrid()" style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.15);color:white;width:36px;height:36px;border-radius:11px;font-size:20px;cursor:pointer;display:none;align-items:center;justify-content:center;">‹</button>
+    </div>
+    <div class="title-area">
+        <div style="font-size:22px;filter:drop-shadow(0 3px 10px rgba(255,200,50,0.7));">🎮</div>
+        <div style="font-size:14px;font-weight:800;color:white;letter-spacing:-0.2px;">Jogos</div>
+        <div id="headerNomeUser" style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.5);display:none;margin-top:1px;"></div>
+    </div>
+    <div id="jogosSaldoTickets" style="display:flex;align-items:center;gap:5px;background:rgba(241,196,15,0.15);border:1px solid rgba(241,196,15,0.3);border-radius:20px;padding:5px 12px;">
+        <span style="font-size:16px;">🎟</span>
+        <span id="jogosTicketNum" style="font-size:14px;font-weight:900;color:#f1c40f;">0</span>
+    </div>
+</div>
+
+<!-- Login Area -->
+<div id="loginArea">
+    <h2>🎟 Acesse seus Jogos</h2>
+    <p>Entre com o celular cadastrado no cardápio para ver seus tickets e jogar!</p>
+    <input type="tel" id="phoneInput" placeholder="(81) 99999-9999" maxlength="20">
+    <button onclick="fazerLogin()">Entrar e Jogar 🎮</button>
+</div>
+
+<!-- Main Content (jogos) -->
+<div id="mainContent">
+
+    <!-- Grid principal -->
+    <div id="gridJogos">
+        <div style="display:flex;align-items:center;gap:6px;padding:2px 4px 12px;">
+            <div style="width:6px;height:6px;border-radius:50%;background:#f1c40f;"></div>
+            <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:1.2px;">Escolha seu jogo</span>
+        </div>
+        <!-- Info tickets -->
+        <div id="infoGanharTicket" style="background:rgba(241,196,15,0.08);border:1px solid rgba(241,196,15,0.2);border-radius:16px;padding:13px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px;">
+            <span style="font-size:24px;">🎟</span>
+            <div>
+                <div style="font-size:12px;font-weight:800;color:#f1c40f;">Como ganhar tickets?</div>
+                <div id="infoTicketValor" style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:2px;">A cada R$ ... em compras você ganha 1 ticket!</div>
+            </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div onclick="abrirRoleta()" style="background:linear-gradient(135deg,rgba(231,76,60,0.25),rgba(192,57,43,0.2));border:1px solid rgba(231,76,60,0.35);border-radius:22px;padding:24px 14px;display:flex;flex-direction:column;align-items:center;gap:10px;cursor:pointer;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.3);transition:transform 0.15s;" ontouchstart="this.style.transform='scale(0.96)'" ontouchend="this.style.transform='scale(1)'">
+                <div style="font-size:40px;filter:drop-shadow(0 4px 12px rgba(231,76,60,0.6));">🎡</div>
+                <div style="font-size:14px;font-weight:800;color:white;">Roleta</div>
+                <div style="font-size:10px;color:rgba(255,255,255,0.45);">Gire e ganhe!</div>
+                <div style="font-size:10px;color:rgba(255,255,255,0.3);background:rgba(255,255,255,0.07);border-radius:8px;padding:3px 8px;">1 ticket por giro</div>
+            </div>
+            <div onclick="abrirCacaNiquel()" style="background:linear-gradient(135deg,rgba(241,196,15,0.25),rgba(243,156,18,0.2));border:1px solid rgba(241,196,15,0.35);border-radius:22px;padding:24px 14px;display:flex;flex-direction:column;align-items:center;gap:10px;cursor:pointer;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.3);transition:transform 0.15s;" ontouchstart="this.style.transform='scale(0.96)'" ontouchend="this.style.transform='scale(1)'">
+                <div style="font-size:40px;filter:drop-shadow(0 4px 12px rgba(241,196,15,0.6));">🎰</div>
+                <div style="font-size:14px;font-weight:800;color:white;">Caça-Níquel</div>
+                <div style="font-size:10px;color:rgba(255,255,255,0.45);">Alinhe e ganhe!</div>
+                <div style="font-size:10px;color:rgba(255,255,255,0.3);background:rgba(255,255,255,0.07);border-radius:8px;padding:3px 8px;">1 ticket por jogada</div>
+            </div>
+        </div>
+        <!-- Crash -->
+        <div onclick="abrirCrash()" style="margin-top:12px;background:linear-gradient(135deg,rgba(155,89,182,0.25),rgba(142,68,173,0.2));border:1px solid rgba(155,89,182,0.35);border-radius:22px;padding:20px 14px;display:flex;align-items:center;gap:16px;cursor:pointer;box-shadow:0 8px 32px rgba(0,0,0,0.3);transition:transform 0.15s;" ontouchstart="this.style.transform='scale(0.98)'" ontouchend="this.style.transform='scale(1)'">
+            <div style="font-size:44px;filter:drop-shadow(0 4px 12px rgba(155,89,182,0.7));flex-shrink:0;">🚀</div>
+            <div style="text-align:left;">
+                <div style="font-size:15px;font-weight:800;color:white;">Foguete Crash</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.45);margin-top:2px;">Saque antes de explodir!</div>
+                <div style="font-size:10px;color:rgba(255,255,255,0.3);background:rgba(255,255,255,0.07);border-radius:8px;padding:3px 8px;margin-top:6px;display:inline-block;">1 ticket por rodada</div>
+            </div>
+        </div>
+
+
+        <!-- Campo mina -->
+        <div onclick="abrirMina()" style="margin-top:12px;background:linear-gradient(135deg,rgba(46,204,113,0.25),rgba(39,174,96,0.2));border:1px solid rgba(46,204,113,0.35);border-radius:22px;padding:20px 14px;display:flex;align-items:center;gap:16px;cursor:pointer;box-shadow:0 8px 32px rgba(0,0,0,0.3);transition:transform 0.15s;" ontouchstart="this.style.transform='scale(0.98)'" ontouchend="this.style.transform='scale(1)'">
+            <div style="font-size:44px;filter:drop-shadow(0 4px 12px rgba(46,204,113,0.6));flex-shrink:0;">💣</div>
+            <div style="text-align:left;">
+                <div style="font-size:15px;font-weight:800;color:white;">Campo Minado</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.45);margin-top:2px;">Desvie das bombas e ganhe!</div>
+                <div style="font-size:10px;color:rgba(255,255,255,0.3);background:rgba(255,255,255,0.07);border-radius:8px;padding:3px 8px;margin-top:6px;display:inline-block;">1 ticket por partida</div>
+            </div>
+        </div>
+
+        <!-- Meus Prêmios -->
+        <div style="margin-top:20px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 4px 12px;">
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <div style="width:6px;height:6px;border-radius:50%;background:#2ecc71;"></div>
+                    <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:1.2px;">Meus Prêmios</span>
+                </div>
+                <span onclick="carregarMeusPremios()" style="font-size:11px;color:rgba(77,208,255,0.7);cursor:pointer;">↻ Atualizar</span>
+            </div>
+            <div id="listaPremios" style="display:flex;flex-direction:column;gap:10px;">
+                <div style="text-align:center;padding:20px;color:rgba(255,255,255,0.3);font-size:13px;">Carregando prêmios...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ROLETA -->
+    <div id="jogoRoleta">
+        <div style="display:flex;align-items:center;gap:6px;padding:2px 4px 12px;">
+            <div style="width:6px;height:6px;border-radius:50%;background:#e74c3c;"></div>
+            <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:1.2px;">Roleta da Sorte</span>
+        </div>
+        <div style="background:linear-gradient(135deg,rgba(231,76,60,0.15),rgba(192,57,43,0.12));border:1px solid rgba(231,76,60,0.25);border-radius:24px;padding:24px 18px;text-align:center;">
+            <div style="position:relative;display:inline-block;margin-bottom:18px;">
+                <div style="position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:26px;color:#f1c40f;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.6));z-index:2;">▼</div>
+                <canvas id="roletaCanvas" width="260" height="260" style="border-radius:50%;box-shadow:0 0 0 5px rgba(255,255,255,0.1),0 12px 40px rgba(0,0,0,0.5);display:block;"></canvas>
+            </div>
+            <div id="roletaResultado" style="min-height:44px;font-size:15px;font-weight:700;color:white;margin-bottom:14px;line-height:1.5;"></div>
+            <button id="btnGirarRoleta" onclick="girarRoleta()" style="width:100%;padding:15px;border:none;border-radius:16px;background:linear-gradient(135deg,#e74c3c,#c0392b);color:white;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 8px 24px rgba(231,76,60,0.5);">🎡 Girar! (1 ticket)</button>
+        </div>
+        <div style="margin-top:12px;">
+            <button onclick="fecharJogo()" style="width:100%;padding:12px;border:1px solid rgba(255,255,255,0.12);border-radius:14px;background:transparent;color:rgba(255,255,255,0.45);font-size:13px;font-weight:700;cursor:pointer;">← Voltar</button>
+        </div>
+    </div>
+
+    <!-- CACA-NIQUEL -->
+    <div id="jogoCacaNiquel">
+        <div style="display:flex;align-items:center;gap:6px;padding:2px 4px 12px;">
+            <div style="width:6px;height:6px;border-radius:50%;background:#f1c40f;"></div>
+            <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:1.2px;">Caça-Níquel</span>
+        </div>
+        <div style="background:linear-gradient(135deg,rgba(241,196,15,0.15),rgba(243,156,18,0.12));border:1px solid rgba(241,196,15,0.25);border-radius:24px;padding:24px 18px;text-align:center;">
+            <div style="background:rgba(0,0,0,0.5);border-radius:20px;padding:20px;margin-bottom:18px;border:2px solid rgba(241,196,15,0.2);">
+                <div style="display:flex;gap:8px;justify-content:center;margin-bottom:8px;">
+                    <div id="reel1" style="width:72px;height:82px;background:rgba(255,255,255,0.07);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:40px;border:1px solid rgba(255,255,255,0.15);">🍗</div>
+                    <div id="reel2" style="width:72px;height:82px;background:rgba(255,255,255,0.07);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:40px;border:1px solid rgba(255,255,255,0.15);">🍗</div>
+                    <div id="reel3" style="width:72px;height:82px;background:rgba(255,255,255,0.07);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:40px;border:1px solid rgba(255,255,255,0.15);">🍗</div>
+                </div>
+                <div style="height:2px;background:rgba(241,196,15,0.5);border-radius:1px;box-shadow:0 0 8px rgba(241,196,15,0.6);"></div>
+            </div>
+            <div id="slotResultado" style="min-height:44px;font-size:15px;font-weight:700;color:white;margin-bottom:14px;line-height:1.5;"></div>
+            <button id="btnPuxarSlot" onclick="puxarSlot()" style="width:100%;padding:15px;border:none;border-radius:16px;background:linear-gradient(135deg,#f1c40f,#e67e22);color:#1a0a00;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 8px 24px rgba(241,196,15,0.45);">🎰 Puxar! (1 ticket)</button>
+        </div>
+        <div style="margin-top:12px;">
+            <button onclick="fecharJogo()" style="width:100%;padding:12px;border:1px solid rgba(255,255,255,0.12);border-radius:14px;background:transparent;color:rgba(255,255,255,0.45);font-size:13px;font-weight:700;cursor:pointer;">← Voltar</button>
+        </div>
+    </div>
+
+    <!-- CAMPO MINADO -->
+    <div id="jogoMina">
+        <div style="display:flex;align-items:center;gap:6px;padding:2px 4px 12px;">
+            <div style="width:6px;height:6px;border-radius:50%;background:#2ecc71;"></div>
+            <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:1.2px;">Campo Minado</span>
+        </div>
+        <div id="minaTextTopoBox" style="display:none;background:linear-gradient(135deg,rgba(46,204,113,0.2),rgba(39,174,96,0.15));border:1px solid rgba(46,204,113,0.4);border-radius:16px;padding:14px 16px;margin-bottom:12px;text-align:center;">
+            <div id="minaTextTopoConteudo" style="font-size:13px;font-weight:700;color:white;line-height:1.6;"></div>
+        </div>
+        <div id="minaPropostaBox" style="display:none;background:rgba(0,0,0,0.35);border:1px solid rgba(241,196,15,0.2);border-radius:16px;padding:14px 16px;margin-bottom:12px;text-align:left;">
+            <div id="minaPropostaTituloEl" style="font-size:14px;font-weight:800;color:#f1c40f;margin-bottom:4px;"></div>
+            <div id="minaPropostaDescEl" style="font-size:12px;color:rgba(255,255,255,0.6);line-height:1.5;"></div>
+        </div>
+        <div id="minaTabelaPremios" style="display:none;margin-bottom:12px;background:rgba(0,0,0,0.3);border:1px solid rgba(46,204,113,0.2);border-radius:16px;overflow:hidden;">
+            <div style="padding:10px 14px;background:rgba(46,204,113,0.1);border-bottom:1px solid rgba(46,204,113,0.15);font-size:11px;font-weight:800;color:#2ecc71;text-align:left;letter-spacing:0.5px;">🏆 PRÊMIOS DISPONÍVEIS</div>
+            <div id="minaTabelaLista" style="display:flex;flex-direction:column;"></div>
+        </div>
+        <div style="background:linear-gradient(135deg,rgba(46,204,113,0.15),rgba(39,174,96,0.12));border:1px solid rgba(46,204,113,0.25);border-radius:24px;padding:20px 16px;text-align:center;">
+            <div id="minaMultiplicador" style="display:none;margin-bottom:14px;background:rgba(0,0,0,0.3);border-radius:14px;padding:10px 16px;">
+                <div style="font-size:11px;color:rgba(255,255,255,0.4);">Multiplicador atual</div>
+                <div id="minaMultValor" style="font-size:28px;font-weight:900;color:#2ecc71;">1.0x</div>
+                <div id="minaGanhoEstimado" style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:2px;"></div>
+            </div>
+            <div id="minaGrade" style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:16px;"></div>
+            <div id="minaResultado" style="min-height:36px;font-size:14px;font-weight:700;color:white;margin-bottom:14px;line-height:1.5;"></div>
+            <div id="minaBtnIniciar">
+                <button onclick="iniciarMina()" style="width:100%;padding:15px;border:none;border-radius:16px;background:linear-gradient(135deg,#2ecc71,#27ae60);color:white;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 8px 24px rgba(46,204,113,0.5);">💣 Jogar! (1 ticket)</button>
+            </div>
+            <div id="minaBtnCashout" style="display:none;">
+                <button onclick="cashoutMina()" style="width:100%;padding:15px;border:none;border-radius:16px;background:linear-gradient(135deg,#f1c40f,#e67e22);color:#1a0a00;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 8px 24px rgba(241,196,15,0.5);">💰 Sacar agora!</button>
+            </div>
+        </div>
+        <div style="margin-top:12px;">
+            <button onclick="fecharJogo()" style="width:100%;padding:12px;border:1px solid rgba(255,255,255,0.12);border-radius:14px;background:transparent;color:rgba(255,255,255,0.45);font-size:13px;font-weight:700;cursor:pointer;">← Voltar</button>
+        </div>
+    </div>
+
+
+    <!-- CRASH FOGUETE -->
+    <div id="jogoCrash">
+        <div style="display:flex;align-items:center;gap:6px;padding:2px 4px 12px;">
+            <div style="width:6px;height:6px;border-radius:50%;background:#9b59b6;"></div>
+            <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:1.2px;">Foguete Crash</span>
+        </div>
+        <div id="crashHistorico" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;min-height:28px;"></div>
+        <div style="background:linear-gradient(135deg,#0a001a,#0d0025);border:1px solid rgba(155,89,182,0.3);border-radius:24px;padding:20px 16px;text-align:center;position:relative;overflow:hidden;">
+            <canvas id="crashCanvas" width="320" height="200" style="width:100%;border-radius:16px;display:block;margin-bottom:12px;"></canvas>
+            <div id="crashMultEl" style="font-size:52px;font-weight:900;color:#9b59b6;letter-spacing:-2px;line-height:1;margin-bottom:4px;text-shadow:0 0 30px rgba(155,89,182,0.8);">1.00x</div>
+            <div id="crashStatusEl" style="font-size:13px;color:rgba(255,255,255,0.45);margin-bottom:16px;">Aguardando...</div>
+            <div id="crashBtnIniciar">
+                <button onclick="iniciarCrash()" style="width:100%;padding:15px;border:none;border-radius:16px;background:linear-gradient(135deg,#9b59b6,#8e44ad);color:white;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 8px 24px rgba(155,89,182,0.5);">🚀 Apostar! (1 ticket)</button>
+            </div>
+            <div id="crashBtnSacar" style="display:none;">
+                <button onclick="sacarCrash()" style="width:100%;padding:15px;border:none;border-radius:16px;background:linear-gradient(135deg,#f1c40f,#e67e22);color:#1a0a00;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 8px 24px rgba(241,196,15,0.5);">💰 SACAR AGORA!</button>
+            </div>
+        </div>
+        <div id="crashResultadoEl" style="min-height:40px;font-size:14px;font-weight:700;color:white;text-align:center;margin-top:12px;line-height:1.5;"></div>
+        <div style="margin-top:12px;">
+            <button onclick="fecharJogo()" style="width:100%;padding:12px;border:1px solid rgba(255,255,255,0.12);border-radius:14px;background:transparent;color:rgba(255,255,255,0.45);font-size:13px;font-weight:700;cursor:pointer;">← Voltar</button>
+        </div>
+    </div>
+
+</div><!-- /mainContent -->
+
+<script>
+// ===================================================================
+// CONFIG SUPABASE
+// ===================================================================
+const SUPABASE_URL = "https://vpeyqgijajywgswmezlh.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZwZXlxZ2lqYWp5d2dzd21lemxoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyNTM1MDIsImV4cCI6MjA4NjgyOTUwMn0.LA5Cbof7IKWAA7l8YbCuPzANpCy0rX_Dro4l9fcDgoQ";
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let user = null; // { phone, name }
+
+// ===== TOAST =====
+let toastTimer = null;
+function showToast(msg, type = 'success', duration = 2500) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.background = type === 'error'
+        ? 'linear-gradient(135deg,#e74c3c,#c0392b)'
+        : type === 'warning'
+        ? 'linear-gradient(135deg,#f1c40f,#e67e22)'
+        : 'linear-gradient(135deg,#4dd0ff,#0099ff)';
+    t.className = 'show';
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.className = ''; }, duration);
+}
+
+// ===== LOGIN =====
+async function fazerLogin() {
+    const input = document.getElementById('phoneInput');
+    let phone = input.value.replace(/\D/g,'');
+    if (phone.length < 10) { showToast('Digite um número válido', 'error'); return; }
+    if (phone.startsWith('55') && phone.length >= 12) phone = phone.slice(2);
+
+    // Buscar cliente na tabela cadastros
+    const { data: cliente } = await sb.from('cadastros').select('phone, name').eq('phone', phone).maybeSingle();
+    if (!cliente) {
+        showToast('Número não encontrado no cardápio', 'error');
+        return;
+    }
+    user = { phone: cliente.phone, name: cliente.name };
+    localStorage.setItem('jogos_phone', cliente.phone);
+    // Garantir que existe registro em game_tickets
+    const { data: gt } = await sb.from('game_tickets').select('phone').eq('phone', cliente.phone).maybeSingle();
+    if (!gt) await sb.from('game_tickets').insert({ phone: cliente.phone, tickets: 0, total_gasto: 0 });
+    mostrarJogos();
+}
+
+function voltarCardapio() {
+    const phone = (user && user.phone) || localStorage.getItem('jogos_phone') || '';
+    const url = 'https://jefferson8564.github.io/orei-coxinha/' + (phone ? '?phone=' + encodeURIComponent(phone) : '');
+    window.location.href = url;
+}
+
+function mostrarJogos() {
+    document.getElementById('loginArea').style.display = 'none';
+    document.getElementById('mainContent').style.display = 'block';
+    const phone = (user && user.phone) || localStorage.getItem('jogos_phone') || '';
+    const cardapioUrl = 'https://jefferson8564.github.io/orei-coxinha/' + (phone ? '?phone=' + encodeURIComponent(phone) : '');
+    history.replaceState(null, '', cardapioUrl);
+    history.pushState(null, '', window.location.href);
+    if (user?.name) {
+        const nomeEl = document.getElementById('headerNomeUser');
+        if (nomeEl) { nomeEl.textContent = 'Olá, ' + user.name.split(' ')[0] + '!'; nomeEl.style.display = 'block'; }
+    }
+    carregarConfigJogos();
+    carregarSaldoTickets();
+    carregarMeusPremios();
+}
+
+// ===================================================================
+// SISTEMA DE JOGOS & TICKETS
+// ===================================================================
+
+let _ticketValorConfig = 30;
+let _roletaFatias = [];
+let _roletaGirando = false;
+let _roletaAngulo = 0;
+let _slotGirando = false;
+const _slotSimbolos = ['🍗','⭐','🍕','🌽','🍓','🍔'];
+
+async function carregarConfigJogos() {
+    try {
+        const [cfgRes, fatiasRes] = await Promise.all([
+            sb.from('game_config').select('valor').eq('chave','ticket_valor').single(),
+            sb.from('roleta_config').select('*').order('ordem')
+        ]);
+        if (cfgRes.data) _ticketValorConfig = parseFloat(cfgRes.data.valor) || 30;
+        if (fatiasRes.data) _roletaFatias = fatiasRes.data;
+        carregarConfigMina().catch(() => {});
+    } catch(e) { console.warn('Erro ao carregar config jogos:', e); }
+    const info = document.getElementById('infoTicketValor');
+    if (info) info.textContent = 'A cada R$ ' + _ticketValorConfig.toFixed(2).replace('.',',') + ' em compras você ganha 1 ticket!';
+}
+
+async function carregarSaldoTickets() {
+    if (!user?.phone) return;
+    try {
+        // Buscar tickets de game_tickets usando o phone exato do cadastro
+        const { data } = await sb.from('game_tickets')
+            .select('tickets, tickets_pendentes')
+            .eq('phone', user.phone)
+            .maybeSingle();
+
+        const tickets = data?.tickets ?? 0;
+        const pendentes = data?.tickets_pendentes ?? 0;
+
+        const num = document.getElementById('jogosTicketNum');
+        if (num) num.textContent = tickets;
+
+        // Mostrar badge de pendentes se houver
+        const pendEl = document.getElementById('ticketsPendentes');
+        if (pendEl) {
+            if (pendentes > 0) {
+                pendEl.textContent = '⏳ +' + pendentes + ' ticket(s) chegando amanhã!';
+                pendEl.style.display = 'block';
+            } else {
+                pendEl.style.display = 'none';
+            }
+        }
+        return tickets;
+    } catch(e) { console.error('[Tickets] Erro:', e); return 0; }
+}
+
+async function carregarMeusPremios() {
+    const lista = document.getElementById('listaPremios');
+    if (!lista || !user?.phone) return;
+    lista.innerHTML = '<div style="text-align:center;padding:20px;color:rgba(255,255,255,0.3);font-size:13px;">Carregando...</div>';
+    try {
+        const { data, error } = await sb.from('game_premios')
+            .select('*')
+            .eq('phone', user.phone)
+            .order('created_at', { ascending: false });
+
+        if (error || !data || data.length === 0) {
+            lista.innerHTML = '<div style="text-align:center;padding:24px;color:rgba(255,255,255,0.25);font-size:13px;">🎁 Nenhum prêmio ainda.<br><span style="font-size:11px;">Jogue para ganhar!</span></div>';
+            return;
+        }
+
+        lista.innerHTML = data.map(p => {
+            const data_str = p.created_at ? new Date(p.created_at).toLocaleDateString('pt-BR') : '';
+            const resgatado = p.resgatado;
+            const cor = resgatado ? 'rgba(255,255,255,0.15)' : 'rgba(46,204,113,0.15)';
+            const borda = resgatado ? 'rgba(255,255,255,0.1)' : 'rgba(46,204,113,0.3)';
+            const badge = resgatado
+                ? '<span style="font-size:10px;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.4);border-radius:20px;padding:2px 10px;">✓ Resgatado</span>'
+                : '<span style="font-size:10px;background:rgba(46,204,113,0.25);color:#2ecc71;border-radius:20px;padding:2px 10px;font-weight:700;">🎁 Disponível</span>';
+            const desconto = p.desconto_pct ? `<div style="font-size:11px;color:#f1c40f;margin-top:4px;">🏷 ${p.desconto_pct}% de desconto</div>` : '';
+            return `
+            <div style="background:${cor};border:1px solid ${borda};border-radius:16px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+                <div style="flex:1;">
+                    <div style="font-size:13px;font-weight:800;color:white;">${p.premio}</div>
+                    ${desconto}
+                    <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:4px;">${data_str}</div>
+                </div>
+                <div>${badge}</div>
+            </div>`;
+        }).join('');
+    } catch(e) {
+        lista.innerHTML = '<div style="text-align:center;padding:20px;color:rgba(255,100,100,0.5);font-size:12px;">Erro ao carregar prêmios.</div>';
+    }
+}
+
+function mostrarToastTicket(qtd) {
+    const el = document.getElementById('ticketToast');
+    if (!el) return;
+    el.innerHTML = '🎟 +' + qtd + ' ticket' + (qtd > 1 ? 's' : '') + ' ganho' + (qtd > 1 ? 's' : '') + '! Jogue agora!';
+    el.style.opacity = '1'; el.style.transform = 'translateX(-50%) translateY(0)';
+    setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateX(-50%) translateY(30px)'; }, 4000);
+}
+
+// ── Navegação ─────────────────────────────────────────────────────────────────
+function fecharJogo() {
+    document.getElementById('gridJogos').style.display = 'block';
+    document.getElementById('jogoRoleta').style.display = 'none';
+    document.getElementById('jogoCacaNiquel').style.display = 'none';
+    document.getElementById('jogoMina').style.display = 'none';
+    document.getElementById('jogoCrash').style.display = 'none';
+    pararCrash();
+    document.getElementById('btnVoltar').style.display = 'none';
+    document.getElementById('btnCardapio').style.display = 'flex';
+}
+
+function voltarGrid() { fecharJogo(); }
+
+function _mostrarBtnVoltar() {
+    document.getElementById('btnVoltar').style.display = 'flex';
+    document.getElementById('btnCardapio').style.display = 'none';
+}
+
+// ── Gastar 1 ticket ──────────────────────────────────────────────────────────
+async function gastarTicket() {
+    const { data: row } = await sb.from('game_tickets').select('tickets').eq('phone', user.phone).maybeSingle();
+    if (!row || row.tickets < 1) return false;
+    await sb.from('game_tickets').update({ tickets: row.tickets - 1, updated_at: new Date().toISOString() }).eq('phone', user.phone);
+    await carregarSaldoTickets();
+    return true;
+}
+
+// ── Registrar prêmio ganho ───────────────────────────────────────────────────
+async function registrarPremio(premio, desconto_pct) {
+    await sb.from('game_premios').insert({ phone: user.phone, premio, desconto_pct: desconto_pct || null, resgatado: false });
+    if (desconto_pct) {
+        await sb.from('game_config').upsert({ chave: 'desconto_' + user.phone, valor: String(desconto_pct) }, { onConflict: 'chave' });
+    }
+    // Atualiza a lista de prêmios automaticamente
+    carregarMeusPremios();
+}
+
+// ── ROLETA ───────────────────────────────────────────────────────────────────
+function abrirRoleta() {
+    document.getElementById('gridJogos').style.display = 'none';
+    document.getElementById('jogoRoleta').style.display = 'block';
+    document.getElementById('jogoCacaNiquel').style.display = 'none';
+    document.getElementById('jogoMina').style.display = 'none';
+    _mostrarBtnVoltar();
+    setTimeout(desenharRoleta, 50);
+}
+
+function sortearRoleta() {
+    const fatias = _roletaFatias.length ? _roletaFatias : [{ label:'Tente de novo', chance:100, cor:'#2c3e50', premio:'Tente de novo!' }];
+    const total = fatias.reduce((s, f) => s + (Number(f.chance) || 0), 0);
+    let rand = Math.random() * total;
+    for (let i = 0; i < fatias.length; i++) { rand -= (Number(fatias[i].chance) || 0); if (rand <= 0) return i; }
+    return 0;
+}
+
+function desenharRoleta(angulo = 0) {
+    const canvas = document.getElementById('roletaCanvas');
+    if (!canvas) return;
+    const fatias = _roletaFatias.length ? _roletaFatias : [{ label:'Carregando...', cor:'#333', chance:100 }];
+    const ctx = canvas.getContext('2d');
+    const cx = canvas.width / 2, cy = canvas.height / 2, r = cx - 6;
+    const arco = (Math.PI * 2) / fatias.length;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    fatias.forEach((seg, i) => {
+        const ini = angulo + i * arco - Math.PI / 2, fim = ini + arco;
+        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, r, ini, fim); ctx.closePath();
+        ctx.fillStyle = seg.cor || '#444'; ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.save(); ctx.translate(cx, cy); ctx.rotate(ini + arco / 2);
+        ctx.textAlign = 'right'; ctx.fillStyle = 'white';
+        ctx.font = 'bold 11px Inter,sans-serif';
+        ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 4;
+        ctx.fillText(seg.label, r - 10, 4); ctx.restore();
+    });
+    ctx.beginPath(); ctx.arc(cx, cy, 18, 0, Math.PI * 2);
+    ctx.fillStyle = '#0a0015'; ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 2; ctx.stroke();
+}
+
+async function girarRoleta() {
+    if (_roletaGirando) return;
+    const btn = document.getElementById('btnGirarRoleta');
+    btn.disabled = true; btn.textContent = 'Verificando ticket...';
+    const ok = await gastarTicket();
+    if (!ok) {
+        btn.disabled = false; btn.innerHTML = '🎡 Girar! (1 ticket)';
+        document.getElementById('roletaResultado').innerHTML = '🎟 Sem tickets!<br><span style="font-size:12px;color:rgba(255,255,255,0.45)">Faça uma compra para ganhar tickets.</span>';
+        return;
+    }
+    _roletaGirando = true;
+    btn.textContent = 'Girando...';
+    const fatias = _roletaFatias.length ? _roletaFatias : [];
+    const sorteado = sortearRoleta();
+    const arco = (Math.PI * 2) / (fatias.length || 1);
+    const alvo = (-(sorteado * arco) - arco / 2 + Math.PI * 2 * 100) % (Math.PI * 2);
+    const anguloAtualMod = _roletaAngulo % (Math.PI * 2);
+    let delta = (alvo - anguloAtualMod + Math.PI * 2) % (Math.PI * 2);
+    if (delta < 0.001) delta = Math.PI * 2;
+    const voltas = 5 + Math.floor(Math.random() * 4);
+    const anguloFinal = _roletaAngulo + voltas * Math.PI * 2 + delta;
+    const duracao = 4000, ini = performance.now(), anguloIni = _roletaAngulo;
+    function animar(agora) {
+        const p = Math.min((agora - ini) / duracao, 1);
+        const ease = 1 - Math.pow(1 - p, 4);
+        _roletaAngulo = anguloIni + (anguloFinal - anguloIni) * ease;
+        desenharRoleta(_roletaAngulo);
+        if (p < 1) { requestAnimationFrame(animar); return; }
+        _roletaGirando = false;
+        btn.disabled = false; btn.innerHTML = '🎡 Girar! (1 ticket)';
+        const seg = fatias[sorteado] || {};
+        document.getElementById('roletaResultado').innerHTML =
+            '🎉 <b>' + (seg.label || '') + '</b><br><span style="font-size:12px;color:rgba(255,255,255,0.7);">' + (seg.premio || '') + '</span>';
+        if (seg.premio && (seg.desconto_pct > 0 || seg.desconto_pct === null)) {
+            registrarPremio(seg.premio, seg.desconto_pct > 0 ? seg.desconto_pct : null);
+        }
+    }
+    requestAnimationFrame(animar);
+}
+
+// ── CAÇA-NÍQUEL ──────────────────────────────────────────────────────────────
+function abrirCacaNiquel() {
+    document.getElementById('gridJogos').style.display = 'none';
+    document.getElementById('jogoRoleta').style.display = 'none';
+    document.getElementById('jogoCacaNiquel').style.display = 'block';
+    document.getElementById('jogoMina').style.display = 'none';
+    _mostrarBtnVoltar();
+}
+
+async function puxarSlot() {
+    if (_slotGirando) return;
+    const btn = document.getElementById('btnPuxarSlot');
+    btn.disabled = true; btn.textContent = 'Verificando ticket...';
+    const ok = await gastarTicket();
+    if (!ok) {
+        btn.disabled = false; btn.innerHTML = '🎰 Puxar! (1 ticket)';
+        document.getElementById('slotResultado').innerHTML = '🎟 Sem tickets!<br><span style="font-size:12px;color:rgba(255,255,255,0.45)">Faça uma compra para ganhar tickets.</span>';
+        return;
+    }
+    _slotGirando = true;
+    btn.textContent = 'Girando...';
+    document.getElementById('slotResultado').innerHTML = '';
+    const reels = ['reel1','reel2','reel3'];
+    const resultados = reels.map(() => Math.floor(Math.random() * _slotSimbolos.length));
+    let finalizados = 0;
+    reels.forEach((id, idx) => {
+        const el = document.getElementById(id);
+        let ticks = 0, total = 10 + idx * 5 + Math.floor(Math.random() * 5);
+        const iv = setInterval(() => {
+            el.innerHTML = _slotSimbolos[Math.floor(Math.random() * _slotSimbolos.length)];
+            if (++ticks >= total) {
+                clearInterval(iv); el.innerHTML = _slotSimbolos[resultados[idx]];
+                if (++finalizados === 3) {
+                    _slotGirando = false;
+                    btn.disabled = false; btn.innerHTML = '🎰 Puxar! (1 ticket)';
+                    avaliarSlot(resultados);
+                }
+            }
+        }, 80 + idx * 20);
+    });
+}
+
+async function avaliarSlot(res) {
+    const el = document.getElementById('slotResultado');
+    if (res[0] === res[1] && res[1] === res[2]) {
+        el.innerHTML = '🎉🎉 JACKPOT! Prêmio especial!<br><span style="font-size:12px;color:rgba(255,255,255,0.6)">Entraremos em contato!</span>';
+        await registrarPremio('JACKPOT no Caça-Níquel! Prêmio especial.', null);
+    } else if (res[0]===res[1]||res[1]===res[2]||res[0]===res[2]) {
+        el.innerHTML = '⭐ Dois iguais! 5% de desconto no próximo pedido!';
+        await registrarPremio('5% de desconto no próximo pedido (Caça-Níquel).', 5);
+    } else {
+        el.innerHTML = '😢 Não foi dessa vez...<br><span style="font-size:12px;color:rgba(255,255,255,0.45)">Tente de novo!</span>';
+    }
+}
+
+// ── CAMPO MINADO ─────────────────────────────────────────────────────────────
+let _minaAtiva = false;
+let _minaBombas = 5;
+let _minaGrade = [];
+let _minaReveladas = 0;
+let _minaSeguras = 0;
+let _minaConfig = null;
+let _minaOrdemSeguras = [];
+
+const MINA_BOMBAS_FIXAS = 5;
+
+async function carregarConfigMina() {
+    const [{ data }, { data: dTexto }, { data: dProposta }] = await Promise.all([
+        sb.from('game_config').select('valor').eq('chave', 'mina_config').maybeSingle(),
+        sb.from('game_config').select('valor').eq('chave', 'mina_texto_topo').maybeSingle(),
+        sb.from('game_config').select('valor').eq('chave', 'mina_proposta').maybeSingle(),
+    ]);
+
+    const textoTopo = dTexto?.valor || '';
+    const topoBox = document.getElementById('minaTextTopoBox');
+    const topoEl = document.getElementById('minaTextTopoConteudo');
+    if (topoBox && topoEl) {
+        if (textoTopo) { topoEl.textContent = textoTopo; topoBox.style.display = 'block'; }
+        else { topoBox.style.display = 'none'; }
+    }
+
+    const propostaBox = document.getElementById('minaPropostaBox');
+    if (propostaBox && dProposta?.valor) {
+        try {
+            const p = JSON.parse(dProposta.valor);
+            if (p.titulo || p.desc) {
+                document.getElementById('minaPropostaTituloEl').textContent = p.titulo || '';
+                document.getElementById('minaPropostaDescEl').textContent = p.desc || '';
+                propostaBox.style.display = 'block';
+            } else { propostaBox.style.display = 'none'; }
+        } catch(e) { propostaBox.style.display = 'none'; }
+    }
+
+    try {
+        const parsed = data ? JSON.parse(data.valor) : null;
+        if (parsed && parsed.niveis) {
+            _minaConfig = parsed;
+        } else if (Array.isArray(parsed)) {
+            const dif5 = parsed.find(d => d.bombas === 5);
+            _minaConfig = dif5 ? { niveis: dif5.niveis.filter(n => n.desconto_pct > 0).slice(0, 5) } : null;
+        }
+    } catch(e) { _minaConfig = null; }
+    if (!_minaConfig) {
+        _minaConfig = { niveis: [
+            { acertos: 2,  desconto_pct: 5,  label: '5% OFF'  },
+            { acertos: 4,  desconto_pct: 10, label: '10% OFF' },
+            { acertos: 7,  desconto_pct: 15, label: '15% OFF' },
+            { acertos: 11, desconto_pct: 20, label: '20% OFF' },
+            { acertos: 15, desconto_pct: 29, label: '29% OFF' },
+        ]};
+    }
+    renderMinaTabelaPremios();
+}
+
+function renderMinaTabelaPremios() {
+    const box = document.getElementById('minaTabelaPremios');
+    const lista = document.getElementById('minaTabelaLista');
+    if (!box || !lista || !_minaConfig || !_minaConfig.niveis || !_minaConfig.niveis.length) {
+        if (box) box.style.display = 'none';
+        return;
+    }
+    box.style.display = 'block';
+    const niveis = [..._minaConfig.niveis].sort((a, b) => a.acertos - b.acertos);
+    lista.innerHTML = niveis.map((n, i) => {
+        const atingido = _minaReveladas >= n.acertos;
+        const proximo = !atingido && (i === 0 || _minaReveladas >= niveis[i-1]?.acertos);
+        const bg = atingido ? 'rgba(46,204,113,0.18)' : proximo ? 'rgba(241,196,15,0.1)' : 'transparent';
+        const bordaLeft = atingido ? '3px solid #2ecc71' : proximo ? '3px solid #f1c40f' : '3px solid transparent';
+        const corLabel = atingido ? '#2ecc71' : proximo ? '#f1c40f' : 'rgba(255,255,255,0.5)';
+        const icone = atingido ? '✅' : proximo ? '🎯' : '🔒';
+        return `<div id="mina_nivel_${i}" style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid rgba(255,255,255,0.05);background:${bg};border-left:${bordaLeft};transition:all 0.3s;">
+            <span style="font-size:14px;min-width:20px;">${icone}</span>
+            <span style="font-size:12px;font-weight:800;color:${corLabel};flex:1;">${n.label || (n.desconto_pct + '% OFF')}</span>
+            <span style="font-size:11px;color:rgba(255,255,255,0.4);">${n.acertos} acerto${n.acertos > 1 ? 's' : ''}</span>
+        </div>`;
+    }).join('');
+}
+
+function atualizarMinaTabela() {
+    if (!_minaConfig || !_minaConfig.niveis) return;
+    const niveis = [..._minaConfig.niveis].sort((a, b) => a.acertos - b.acertos);
+    niveis.forEach((n, i) => {
+        const el = document.getElementById('mina_nivel_' + i);
+        if (!el) return;
+        const atingido = _minaReveladas >= n.acertos;
+        const proximo = !atingido && (i === 0 || _minaReveladas >= niveis[i-1]?.acertos);
+        el.style.background = atingido ? 'rgba(46,204,113,0.18)' : proximo ? 'rgba(241,196,15,0.1)' : 'transparent';
+        el.style.borderLeft = atingido ? '3px solid #2ecc71' : proximo ? '3px solid #f1c40f' : '3px solid transparent';
+        el.querySelector('span:nth-child(2)').style.color = atingido ? '#2ecc71' : proximo ? '#f1c40f' : 'rgba(255,255,255,0.5)';
+        el.querySelector('span:first-child').textContent = atingido ? '✅' : proximo ? '🎯' : '🔒';
+    });
+}
+
+function getPremioAtual() {
+    if (!_minaConfig) return { desconto_pct: 0, label: 'Nada' };
+    const niveis = [..._minaConfig.niveis].sort((a, b) => b.acertos - a.acertos);
+    for (const n of niveis) {
+        if (_minaReveladas >= n.acertos) return n;
+    }
+    return { desconto_pct: 0, label: 'Nada' };
+}
+
+async function abrirMina() {
+    document.getElementById('gridJogos').style.display = 'none';
+    document.getElementById('jogoRoleta').style.display = 'none';
+    document.getElementById('jogoCacaNiquel').style.display = 'none';
+    document.getElementById('jogoMina').style.display = 'block';
+    _mostrarBtnVoltar();
+    if (!_minaConfig) await carregarConfigMina();
+    resetarMina();
+}
+
+function resetarMina() {
+    _minaAtiva = false;
+    _minaGrade = [];
+    _minaReveladas = 0;
+    _minaOrdemSeguras = [];
+    document.getElementById('minaResultado').innerHTML = '';
+    document.getElementById('minaMultiplicador').style.display = 'none';
+    document.getElementById('minaBtnIniciar').style.display = 'block';
+    document.getElementById('minaBtnCashout').style.display = 'none';
+    renderGradeMina(false);
+    renderMinaTabelaPremios();
+}
+
+function renderGradeMina(ativa) {
+    const grade = document.getElementById('minaGrade');
+    grade.innerHTML = '';
+    for (let i = 0; i < 25; i++) {
+        const cel = document.createElement('div');
+        cel.id = 'mina_cel_' + i;
+        cel.style.cssText = 'aspect-ratio:1;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;cursor:' + (ativa?'pointer':'default') + ';background:rgba(255,255,255,0.08);border:1.5px solid rgba(255,255,255,0.12);transition:transform 0.15s,background 0.2s;user-select:none;-webkit-user-select:none;';
+        cel.textContent = '❓';
+        if (ativa) {
+            cel.onclick = () => revelarCelula(i);
+            cel.ontouchstart = () => { cel.style.transform = 'scale(0.92)'; };
+            cel.ontouchend = () => { cel.style.transform = 'scale(1)'; };
+        }
+        grade.appendChild(cel);
+    }
+}
+
+async function iniciarMina() {
+    const btn = document.getElementById('minaBtnIniciar').querySelector('button');
+    btn.disabled = true; btn.textContent = 'Verificando ticket...';
+    const ok = await gastarTicket();
+    if (!ok) {
+        btn.disabled = false; btn.innerHTML = '💣 Jogar! (1 ticket)';
+        document.getElementById('minaResultado').innerHTML = '🎟 Sem tickets!<br><span style="font-size:12px;color:rgba(255,255,255,0.45)">Faça uma compra para ganhar tickets.</span>';
+        return;
+    }
+    btn.disabled = false; btn.innerHTML = '💣 Jogar! (1 ticket)';
+    _minaGrade = Array(25).fill(false);
+    const todas = Array.from({length: 25}, (_, i) => i);
+    const embaralhadas = [...todas].sort(() => Math.random() - 0.5);
+    const posBombas = embaralhadas.slice(0, MINA_BOMBAS_FIXAS);
+    posBombas.forEach(p => { _minaGrade[p] = true; });
+    _minaOrdemSeguras = [];
+    _minaSeguras = 25 - MINA_BOMBAS_FIXAS;
+    _minaReveladas = 0;
+    _minaAtiva = true;
+    document.getElementById('minaResultado').innerHTML = '❓ Clique nas células para revelar!';
+    document.getElementById('minaMultiplicador').style.display = 'block';
+    document.getElementById('minaMultValor').textContent = 'Prêmio atual:';
+    document.getElementById('minaGanhoEstimado').textContent = 'Nada ainda — revele células!';
+    document.getElementById('minaBtnIniciar').style.display = 'none';
+    document.getElementById('minaBtnCashout').style.display = 'block';
+    renderGradeMina(true);
+}
+
+function _celulasNaoReveladas() {
+    const resultado = [];
+    for (let i = 0; i < 25; i++) {
+        const c = document.getElementById('mina_cel_' + i);
+        if (c && !c.dataset.revelada) resultado.push(i);
+    }
+    return resultado;
+}
+
+function revelarCelula(idx) {
+    if (!_minaAtiva) return;
+    const cel = document.getElementById('mina_cel_' + idx);
+    if (!cel || cel.dataset.revelada) return;
+    const restantesAntesDeClicar = _celulasNaoReveladas();
+    if (restantesAntesDeClicar.length === 3) {
+        const duasUltimas = restantesAntesDeClicar.filter(i => i !== idx);
+        _minaGrade = Array(25).fill(false);
+        duasUltimas.forEach(i => { _minaGrade[i] = true; });
+    }
+    cel.dataset.revelada = '1';
+    cel.onclick = null;
+    cel.style.cursor = 'default';
+    const isBomba = _minaGrade[idx];
+    if (isBomba) {
+        cel.textContent = '💣';
+        cel.style.background = 'rgba(231,76,60,0.5)';
+        cel.style.border = '1.5px solid #e74c3c';
+        _minaAtiva = false;
+        document.getElementById('minaBtnCashout').style.display = 'none';
+        document.getElementById('minaBtnIniciar').style.display = 'block';
+        document.getElementById('minaResultado').innerHTML = '💣 <b>BOMBA!</b> Você perdeu esta rodada.<br><span style="font-size:12px;color:rgba(255,255,255,0.5)">Tente de novo!</span>';
+        document.getElementById('minaMultiplicador').style.display = 'none';
+        setTimeout(() => {
+            const outrasBombas = [];
+            for (let i = 0; i < 25; i++) {
+                if (i === idx) continue;
+                const c = document.getElementById('mina_cel_' + i);
+                if (!c || c.dataset.revelada) continue;
+                if (_minaGrade[i]) outrasBombas.push(i);
+            }
+            outrasBombas.sort(() => Math.random() - 0.5);
+            outrasBombas.slice(0, 4).forEach(i => {
+                const c = document.getElementById('mina_cel_' + i);
+                if (!c) return;
+                c.textContent = '💣'; c.style.background = 'rgba(231,76,60,0.2)'; c.style.border = '1.5px solid rgba(231,76,60,0.4)';
+            });
+        }, 300);
+    } else {
+        cel.textContent = '💎';
+        cel.style.background = 'rgba(46,204,113,0.3)';
+        cel.style.border = '1.5px solid #2ecc71';
+        _minaReveladas++;
+        const premio = getPremioAtual();
+        document.getElementById('minaMultValor').textContent = 'Prêmio atual:';
+        document.getElementById('minaGanhoEstimado').textContent = premio.label + (premio.desconto_pct > 0 ? ' ✅' : ' — revele mais!');
+        document.getElementById('minaResultado').innerHTML = '💎 ' + _minaReveladas + ' diamante' + (_minaReveladas > 1 ? 's' : '') + ' encontrado' + (_minaReveladas > 1 ? 's' : '') + '!';
+        atualizarMinaTabela();
+        const naoReveladas = _celulasNaoReveladas();
+        const todasSaoBomba = naoReveladas.every(i => _minaGrade[i]);
+        if (todasSaoBomba) cashoutMina();
+    }
+}
+
+async function cashoutMina() {
+    if (!_minaAtiva && _minaReveladas === 0) return;
+    _minaAtiva = false;
+    document.getElementById('minaBtnCashout').style.display = 'none';
+    document.getElementById('minaBtnIniciar').style.display = 'block';
+    if (_minaReveladas === 0) {
+        document.getElementById('minaResultado').innerHTML = '😅 Revele pelo menos 1 célula antes de sacar!';
+        return;
+    }
+    const premio = getPremioAtual();
+    for (let i = 0; i < 25; i++) {
+        const c = document.getElementById('mina_cel_' + i);
+        if (!c || c.dataset.revelada) continue;
+        if (_minaGrade[i]) {
+            c.textContent = '💣'; c.style.background = 'rgba(231,76,60,0.15)'; c.style.border = '1.5px solid rgba(231,76,60,0.3)';
+        } else {
+            c.textContent = '·'; c.style.background = 'rgba(255,255,255,0.03)'; c.style.border = '1.5px solid rgba(255,255,255,0.06)';
+            c.style.fontSize = '14px'; c.style.color = 'rgba(255,255,255,0.2)';
+        }
+    }
+    if (premio.desconto_pct > 0) {
+        document.getElementById('minaResultado').innerHTML =
+            '🎉 <b>' + premio.label + '</b> ganho!<br><span style="font-size:12px;color:rgba(255,255,255,0.6)">Cupom adicionado aos seus prêmios!</span>';
+        await registrarPremio('Campo Minado: ' + premio.label, premio.desconto_pct);
+    } else {
+        document.getElementById('minaResultado').innerHTML =
+            '😔 <b>Sem prêmio desta vez.</b><br><span style="font-size:12px;color:rgba(255,255,255,0.5)">Revele mais células antes de sacar!</span>';
+    }
+    document.getElementById('minaMultiplicador').style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CRASH FOGUETE
+// ═══════════════════════════════════════════════════════════════
+let _crashAtivo = false;
+let _crashMultiplier = 1.00;
+let _crashAlvo = 1.00;
+let _crashInterval = null;
+let _crashSacou = false;
+let _crashCanvas = null;
+let _crashCtx = null;
+let _crashParticulas = [];
+let _crashStars = [];
+let _crashFrame = null;
+
+function _gerarAlvoCrash() {
+    const r = Math.random() * 100;
+    if (r < 60) return +(1 + Math.random() * 3.99).toFixed(2);
+    else if (r < 85) return +(5 + Math.random() * 4.99).toFixed(2);
+    else if (r < 97) return +(10 + Math.random() * 14.99).toFixed(2);
+    else return +(25 + Math.random() * 75).toFixed(2);
+}
+
+function _corMultiplier(m) {
+    if (m < 2)   return '#e74c3c';
+    if (m < 5)   return '#e67e22';
+    if (m < 10)  return '#f1c40f';
+    if (m < 25)  return '#2ecc71';
+    return '#9b59b6';
+}
+
+function _initCrashCanvas() {
+    _crashCanvas = document.getElementById('crashCanvas');
+    if (!_crashCanvas) return;
+    _crashCtx = _crashCanvas.getContext('2d');
+    _crashStars = Array.from({length: 60}, () => ({
+        x: Math.random() * 320,
+        y: Math.random() * 200,
+        r: Math.random() * 1.5 + 0.3,
+        a: Math.random()
+    }));
+    _desenharCrashIdle();
+}
+
+function _desenharCrashIdle() {
+    if (!_crashCtx) return;
+    const ctx = _crashCtx;
+    ctx.clearRect(0, 0, 320, 200);
+    ctx.fillStyle = '#0a001a';
+    ctx.fillRect(0, 0, 320, 200);
+    _crashStars.forEach(s => {
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+        ctx.fillStyle = `rgba(255,255,255,${s.a})`;
+        ctx.fill();
+    });
+    _desenharRocket(ctx, 160, 140, false);
+}
+
+function _desenharRocket(ctx, x, y, voando) {
+    ctx.save();
+    ctx.translate(x, y);
+    if (voando) ctx.rotate(-0.25);
+    ctx.fillStyle = '#9b59b6';
+    ctx.beginPath();
+    ctx.roundRect(-10, -22, 20, 32, 4);
+    ctx.fill();
+    ctx.fillStyle = '#c39bd3';
+    ctx.beginPath();
+    ctx.moveTo(0, -36); ctx.lineTo(-10, -22); ctx.lineTo(10, -22); ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#85c1e9';
+    ctx.beginPath(); ctx.arc(0, -12, 5, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#8e44ad';
+    ctx.beginPath(); ctx.moveTo(-10, 0); ctx.lineTo(-18, 10); ctx.lineTo(-10, 6); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(18, 10); ctx.lineTo(10, 6); ctx.closePath(); ctx.fill();
+    if (voando) {
+        const grad = ctx.createLinearGradient(0, 10, 0, 38);
+        grad.addColorStop(0, 'rgba(255,200,0,0.9)');
+        grad.addColorStop(0.5, 'rgba(255,100,0,0.7)');
+        grad.addColorStop(1, 'rgba(255,50,0,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.moveTo(-6, 10); ctx.lineTo(0, 30 + Math.random()*8); ctx.lineTo(6, 10); ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+}
+
+function _animarCrash() {
+    if (!_crashAtivo || !_crashCtx) return;
+    const ctx = _crashCtx;
+    ctx.clearRect(0, 0, 320, 200);
+    ctx.fillStyle = '#0a001a'; ctx.fillRect(0, 0, 320, 200);
+    _crashStars.forEach(s => {
+        s.y += 0.4; if (s.y > 200) s.y = 0;
+        ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+        ctx.fillStyle = `rgba(255,255,255,${s.a})`; ctx.fill();
+    });
+    const prog = Math.min((_crashMultiplier - 1) / (_crashAlvo - 1 || 1), 1);
+    const rx = 40 + prog * 240;
+    const ry = 180 - prog * 160;
+    ctx.beginPath(); ctx.moveTo(20, 185); ctx.quadraticCurveTo(rx * 0.5, 185, rx, ry);
+    ctx.strokeStyle = 'rgba(155,89,182,0.5)'; ctx.lineWidth = 2; ctx.stroke();
+    _crashParticulas = _crashParticulas.filter(p => p.life > 0);
+    _crashParticulas.forEach(p => {
+        p.x += p.vx; p.y += p.vy; p.life -= 3;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+        ctx.fillStyle = `rgba(155,89,182,${p.life/100})`; ctx.fill();
+    });
+    if (Math.random() < 0.4) {
+        _crashParticulas.push({x: rx, y: ry, vx:(Math.random()-0.5)*2, vy:Math.random()*2, r:Math.random()*2+1, life:80});
+    }
+    _desenharRocket(ctx, rx, ry, true);
+    _crashFrame = requestAnimationFrame(_animarCrash);
+}
+
+function _animarExplosao(x, y) {
+    if (!_crashCtx) return;
+    const ctx = _crashCtx;
+    const parts = Array.from({length:30}, () => ({
+        x, y,
+        vx: (Math.random()-0.5)*8, vy: (Math.random()-0.5)*8,
+        r: Math.random()*4+2, life: 100,
+        cor: ['#e74c3c','#e67e22','#f1c40f','#9b59b6'][Math.floor(Math.random()*4)]
+    }));
+    function frame() {
+        ctx.clearRect(0, 0, 320, 200); ctx.fillStyle = '#0a001a'; ctx.fillRect(0, 0, 320, 200);
+        _crashStars.forEach(s => {
+            ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+            ctx.fillStyle = `rgba(255,255,255,${s.a})`; ctx.fill();
+        });
+        let alive = false;
+        parts.forEach(p => {
+            if (p.life <= 0) return;
+            p.x+=p.vx; p.y+=p.vy; p.vy+=0.3; p.life-=4;
+            alive = true;
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.r*(p.life/100), 0, Math.PI*2);
+            ctx.fillStyle = p.cor; ctx.fill();
+        });
+        if (alive) requestAnimationFrame(frame);
+        else _desenharCrashIdle();
+    }
+    requestAnimationFrame(frame);
+}
+
+async function _salvarHistoricoCrash(mult) {
+    try {
+        const hist = await sb.from('game_config').select('valor').eq('chave','crash_historico').maybeSingle();
+        let arr = [];
+        try { arr = hist?.data ? JSON.parse(hist.data.valor) : []; } catch(e) { arr = []; }
+        arr.unshift(+mult.toFixed(2));
+        if (arr.length > 20) arr = arr.slice(0, 20);
+        await sb.from('game_config').upsert({chave:'crash_historico', valor: JSON.stringify(arr)}, {onConflict:'chave'});
+    } catch(e) {}
+}
+
+async function _carregarHistoricoCrash() {
+    try {
+        const { data } = await sb.from('game_config').select('valor').eq('chave','crash_historico').maybeSingle();
+        let arr = [];
+        try { arr = data ? JSON.parse(data.valor) : []; } catch(e) {}
+        const el = document.getElementById('crashHistorico');
+        if (!el) return;
+        el.innerHTML = arr.slice(0,12).map(m => {
+            const cor = _corMultiplier(m);
+            return `<span style="background:${cor}22;border:1px solid ${cor}55;color:${cor};font-size:11px;font-weight:800;padding:3px 8px;border-radius:20px;">${(+m).toFixed(2)}x</span>`;
+        }).join('');
+    } catch(e) {}
+}
+
+function pararCrash() {
+    _crashAtivo = false;
+    if (_crashInterval) clearInterval(_crashInterval);
+    _crashInterval = null;
+    if (_crashFrame) cancelAnimationFrame(_crashFrame);
+    _crashFrame = null;
+}
+
+async function abrirCrash() {
+    document.getElementById('gridJogos').style.display = 'none';
+    document.getElementById('jogoRoleta').style.display = 'none';
+    document.getElementById('jogoCacaNiquel').style.display = 'none';
+    document.getElementById('jogoMina').style.display = 'none';
+    document.getElementById('jogoCrash').style.display = 'block';
+    _mostrarBtnVoltar();
+    _resetarCrash();
+    await _carregarHistoricoCrash();
+}
+
+function _resetarCrash() {
+    pararCrash();
+    _crashMultiplier = 1.00;
+    _crashSacou = false;
+    const multEl = document.getElementById('crashMultEl');
+    const statusEl = document.getElementById('crashStatusEl');
+    const resEl = document.getElementById('crashResultadoEl');
+    const btnI = document.getElementById('crashBtnIniciar');
+    const btnS = document.getElementById('crashBtnSacar');
+    if (multEl) { multEl.textContent = '1.00x'; multEl.style.color = '#9b59b6'; }
+    if (statusEl) statusEl.textContent = 'Pronto para decolar!';
+    if (resEl) resEl.innerHTML = '';
+    if (btnI) btnI.style.display = 'block';
+    if (btnS) btnS.style.display = 'none';
+    _initCrashCanvas();
+}
+
+async function iniciarCrash() {
+    const btn = document.querySelector('#crashBtnIniciar button');
+    if (btn) { btn.disabled = true; btn.textContent = 'Verificando...'; }
+    const ok = await gastarTicket();
+    if (!ok) {
+        if (btn) { btn.disabled = false; btn.innerHTML = '🚀 Apostar! (1 ticket)'; }
+        document.getElementById('crashResultadoEl').innerHTML = '🎟 Sem tickets!';
+        return;
+    }
+    if (btn) { btn.disabled = false; btn.innerHTML = '🚀 Apostar! (1 ticket)'; }
+    _crashAlvo = _gerarAlvoCrash();
+    _crashMultiplier = 1.00;
+    _crashAtivo = true;
+    _crashSacou = false;
+    document.getElementById('crashBtnIniciar').style.display = 'none';
+    document.getElementById('crashBtnSacar').style.display = 'block';
+    document.getElementById('crashResultadoEl').innerHTML = '';
+    document.getElementById('crashStatusEl').textContent = '🚀 Voando...';
+    _animarCrash();
+    _crashInterval = setInterval(() => {
+        if (!_crashAtivo) return;
+        const incremento = _crashMultiplier < 2 ? 0.03
+            : _crashMultiplier < 5  ? 0.06
+            : _crashMultiplier < 10 ? 0.12
+            : _crashMultiplier < 25 ? 0.25
+            : 0.5;
+        _crashMultiplier = Math.min(_crashMultiplier + incremento, _crashAlvo);
+        const multEl = document.getElementById('crashMultEl');
+        if (multEl) { multEl.textContent = _crashMultiplier.toFixed(2) + 'x'; multEl.style.color = _corMultiplier(_crashMultiplier); }
+        if (_crashMultiplier >= _crashAlvo) _explodirCrash();
+    }, 100);
+}
+
+function _explodirCrash() {
+    pararCrash();
+    const multEl = document.getElementById('crashMultEl');
+    const statusEl = document.getElementById('crashStatusEl');
+    const resEl = document.getElementById('crashResultadoEl');
+    const btnI = document.getElementById('crashBtnIniciar');
+    const btnS = document.getElementById('crashBtnSacar');
+    if (multEl) { multEl.textContent = '💥 ' + _crashAlvo.toFixed(2) + 'x'; multEl.style.color = '#e74c3c'; }
+    if (statusEl) statusEl.textContent = 'CRASH!';
+    if (btnS) btnS.style.display = 'none';
+    if (btnI) btnI.style.display = 'block';
+    const prog = Math.min((_crashAlvo - 1) / (_crashAlvo - 1 || 1), 1);
+    const rx = 40 + prog * 240;
+    const ry = 180 - prog * 160;
+    _animarExplosao(rx, ry);
+    if (!_crashSacou) {
+        if (resEl) resEl.innerHTML = '💥 <b>Explodiu em ' + _crashAlvo.toFixed(2) + 'x!</b><br><span style="font-size:12px;color:rgba(255,255,255,0.5)">Você perdeu essa rodada. Tente de novo!</span>';
+    }
+    _salvarHistoricoCrash(_crashAlvo);
+    setTimeout(() => _carregarHistoricoCrash(), 500);
+}
+
+async function sacarCrash() {
+    if (!_crashAtivo || _crashSacou) return;
+    _crashSacou = true;
+    const mult = _crashMultiplier;
+    pararCrash();
+    const btnI = document.getElementById('crashBtnIniciar');
+    const btnS = document.getElementById('crashBtnSacar');
+    const statusEl = document.getElementById('crashStatusEl');
+    const resEl = document.getElementById('crashResultadoEl');
+    if (btnS) btnS.style.display = 'none';
+    if (btnI) btnI.style.display = 'block';
+    if (statusEl) statusEl.textContent = '💰 Sacou em ' + mult.toFixed(2) + 'x!';
+    const descontoPct = Math.floor(mult);
+    const premioLabel = descontoPct + '% de desconto no seu próximo pedido! (Foguete ' + mult.toFixed(2) + 'x)';
+    if (descontoPct >= 1) {
+        await registrarPremio(premioLabel, descontoPct);
+        if (resEl) resEl.innerHTML = '🎉 <b>Sacou em ' + mult.toFixed(2) + 'x!</b><br><span style="font-size:13px;color:#2ecc71;font-weight:700;">' + descontoPct + '% de desconto ganho! 🎁</span>';
+    } else {
+        if (resEl) resEl.innerHTML = '😅 Sacou em ' + mult.toFixed(2) + 'x — menos de 1x não gera prêmio. Tente sacar acima de 1x!';
+    }
+    _desenharCrashIdle();
+}
+
+
+// ===== FUNÇÃO CENTRAL: carregar cliente pelo phone =====
+async function carregarCliente(phone) {
+    // Normalizar phone
+    phone = phone.replace(/\D/g, '');
+    if (phone.startsWith('55') && phone.length >= 12) phone = phone.slice(2);
+
+    // 1. Buscar dados do cliente em cadastros
+    const { data: cliente } = await sb.from('cadastros')
+        .select('phone, name')
+        .eq('phone', phone)
+        .maybeSingle();
+
+    if (!cliente) return null; // cliente não encontrado
+
+    user = { phone: cliente.phone, name: cliente.name };
+    localStorage.setItem('jogos_phone', cliente.phone);
+
+    // 2. Garantir registro em game_tickets
+    const { data: gt } = await sb.from('game_tickets').select('phone').eq('phone', cliente.phone).maybeSingle();
+    if (!gt) await sb.from('game_tickets').insert({ phone: cliente.phone, tickets: 0, total_gasto: 0 });
+
+    return user;
+}
+
+// ===== INIT =====
+window.addEventListener('load', async () => {
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) overlay.style.display = 'flex';
+
+    try {
+        // 1. Prioridade: parâmetro ?phone= na URL (vindo do cardápio — já logado)
+        const urlParams = new URLSearchParams(window.location.search);
+        const phoneUrl = urlParams.get('phone');
+
+        if (phoneUrl) {
+            const ok = await carregarCliente(phoneUrl);
+            if (ok) {
+                mostrarJogos();
+            } else {
+                showToast('Sessão expirada, faça login novamente', 'warning');
+            }
+
+        // 2. Auto-login pelo localStorage (sessão salva)
+        } else {
+            const savedPhone = localStorage.getItem('jogos_phone');
+            if (savedPhone) {
+                const ok = await carregarCliente(savedPhone);
+                if (ok) {
+                    mostrarJogos();
+                } else {
+                    localStorage.removeItem('jogos_phone');
+                }
+            }
+        }
+    } catch(e) {
+        console.error('[Init] Erro ao carregar:', e);
+        showToast('Erro ao conectar. Verifique sua internet.', 'error');
+    } finally {
+        // Garante que o loading SEMPRE some, mesmo com erro
+        if (overlay) overlay.style.display = 'none';
+    }
+});
+</script>
+
+</body>
+</html>

@@ -438,14 +438,63 @@ async function carregarConfigJogos() {
     if (info) info.textContent = 'A cada R$ ' + _ticketValorConfig.toFixed(2).replace('.',',') + ' em compras você ganha 1 ticket!';
 }
 
+// Calcula o próximo datetime de liberação dado um horário fixo "HH:MM"
+function calcularProximaLiberacaoTicket(horario) {
+    const [hh, mm] = horario.split(':').map(Number);
+    const agora = new Date();
+    const proxima = new Date(agora);
+    proxima.setHours(hh, mm, 0, 0);
+    if (proxima <= agora) proxima.setDate(proxima.getDate() + 1);
+    return proxima;
+}
+
+// Libera tickets pendentes se o horário fixo do admin já passou
+async function liberarTicketsPendentes(phone) {
+    try {
+        const { data: gt } = await sb.from('game_tickets').select('*').eq('phone', phone).maybeSingle();
+        if (!gt || !gt.tickets_pendentes || gt.tickets_pendentes <= 0) return;
+
+        const { data: cfgHorario } = await sb.from('game_config').select('valor').eq('chave', 'horario_liberacao').maybeSingle();
+
+        let deveLiberar = false;
+
+        if (cfgHorario && cfgHorario.valor) {
+            const [hh, mm] = cfgHorario.valor.split(':').map(Number);
+            const agora = new Date();
+            const horarioHoje = new Date(agora);
+            horarioHoje.setHours(hh, mm, 0, 0);
+            const ticketCriadoEm = gt.updated_at ? new Date(gt.updated_at) : null;
+            if (agora >= horarioHoje && ticketCriadoEm && ticketCriadoEm < horarioHoje) {
+                deveLiberar = true;
+            }
+        } else if (gt.tickets_liberar_em) {
+            const liberarEm = new Date(gt.tickets_liberar_em);
+            if (new Date() >= liberarEm) deveLiberar = true;
+        }
+
+        if (deveLiberar) {
+            await sb.from('game_tickets').update({
+                tickets: (gt.tickets || 0) + gt.tickets_pendentes,
+                tickets_pendentes: 0,
+                tickets_liberar_em: null,
+                updated_at: new Date().toISOString()
+            }).eq('phone', phone);
+            console.log(`🎟️ ${gt.tickets_pendentes} ticket(s) liberados!`);
+        }
+    } catch(e) { console.warn('Erro ao liberar tickets:', e); }
+}
+
 async function carregarSaldoTickets() {
     if (!user?.phone) return;
     try {
-        // Buscar tickets de game_tickets usando o phone exato do cadastro
-        const { data } = await sb.from('game_tickets')
-            .select('tickets, tickets_pendentes')
-            .eq('phone', user.phone)
-            .maybeSingle();
+        // Tentar liberar tickets pendentes antes de exibir
+        await liberarTicketsPendentes(user.phone);
+
+        // Buscar tickets e horário de liberação em paralelo
+        const [{ data }, { data: cfgHorario }] = await Promise.all([
+            sb.from('game_tickets').select('tickets, tickets_pendentes, updated_at').eq('phone', user.phone).maybeSingle(),
+            sb.from('game_config').select('valor').eq('chave', 'horario_liberacao').maybeSingle()
+        ]);
 
         const tickets = data?.tickets ?? 0;
         const pendentes = data?.tickets_pendentes ?? 0;
@@ -453,11 +502,21 @@ async function carregarSaldoTickets() {
         const num = document.getElementById('jogosTicketNum');
         if (num) num.textContent = tickets;
 
-        // Mostrar badge de pendentes se houver
+        // Mostrar badge de pendentes com horário real
         const pendEl = document.getElementById('ticketsPendentes');
         if (pendEl) {
             if (pendentes > 0) {
-                pendEl.textContent = '⏳ +' + pendentes + ' ticket(s) chegando amanhã!';
+                let msg = '⏳ +' + pendentes + ' ticket(s) a confirmar';
+                if (cfgHorario && cfgHorario.valor) {
+                    const proxima = calcularProximaLiberacaoTicket(cfgHorario.valor);
+                    const agora = new Date();
+                    const diffMs = proxima - agora;
+                    const diffH = Math.floor(diffMs / 3600000);
+                    const diffM = Math.floor((diffMs % 3600000) / 60000);
+                    const tempoStr = diffH > 0 ? `${diffH}h ${diffM}min` : `${diffM}min`;
+                    msg = `⏳ +${pendentes} ticket(s) — libera às ${cfgHorario.valor} (faltam ${tempoStr})`;
+                }
+                pendEl.textContent = msg;
                 pendEl.style.display = 'block';
             } else {
                 pendEl.style.display = 'none';
@@ -1303,6 +1362,294 @@ window.addEventListener('load', async () => {
         if (overlay) overlay.style.display = 'none';
     }
 });
+
+// ====================================================================
+// 🔊 SISTEMA DE SONS DOS JOGOS — Web Audio API (sem arquivos externos)
+// ====================================================================
+const _AC = window.AudioContext || window.webkitAudioContext;
+let _ctx = null;
+function _getCtx() {
+    if (!_ctx) _ctx = new _AC();
+    if (_ctx.state === 'suspended') _ctx.resume();
+    return _ctx;
+}
+
+// --- Utilitários básicos ---
+function _osc(freq, type, start, dur, gainVal, ctx, dest) {
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, start);
+    g.gain.setValueAtTime(gainVal, start);
+    g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+    o.connect(g); g.connect(dest);
+    o.start(start); o.stop(start + dur);
+}
+function _noise(start, dur, gainVal, ctx, dest) {
+    const buf = ctx.createBuffer(1, ctx.sampleRate * dur, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const src = ctx.createBufferSource();
+    const g = ctx.createGain();
+    const f = ctx.createBiquadFilter();
+    src.buffer = buf; f.type = 'lowpass'; f.frequency.value = 800;
+    g.gain.setValueAtTime(gainVal, start);
+    g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+    src.connect(f); f.connect(g); g.connect(dest);
+    src.start(start); src.stop(start + dur);
+}
+
+// ─────────────────────────────────────────
+// 🎡 ROLETA
+// ─────────────────────────────────────────
+function somRoletaGirar() {
+    const ctx = _getCtx(); const t = ctx.currentTime; const d = ctx.destination;
+    // Tick rítmico acelerando
+    for (let i = 0; i < 30; i++) {
+        const delay = i * i * 0.002 + i * 0.01;
+        _osc(1200 + Math.random() * 400, 'square', t + delay, 0.04, 0.08, ctx, d);
+    }
+}
+function somRoletaVitoria() {
+    const ctx = _getCtx(); const t = ctx.currentTime; const d = ctx.destination;
+    const notas = [523, 659, 784, 1047, 1319];
+    notas.forEach((f, i) => _osc(f, 'sine', t + i * 0.1, 0.3, 0.25, ctx, d));
+    _osc(1047, 'triangle', t + 0.55, 0.6, 0.2, ctx, d);
+}
+function somRoletaDerrota() {
+    const ctx = _getCtx(); const t = ctx.currentTime; const d = ctx.destination;
+    _osc(300, 'sawtooth', t, 0.3, 0.2, ctx, d);
+    _osc(220, 'sawtooth', t + 0.15, 0.4, 0.18, ctx, d);
+}
+
+// ─────────────────────────────────────────
+// 🎰 CAÇA-NÍQUEL
+// ─────────────────────────────────────────
+function somSlotGirar() {
+    const ctx = _getCtx(); const t = ctx.currentTime; const d = ctx.destination;
+    for (let i = 0; i < 18; i++) {
+        const delay = i * 0.06;
+        _osc(800 + Math.random() * 300, 'square', t + delay, 0.05, 0.06, ctx, d);
+    }
+}
+function somSlotReel(idx) {
+    const ctx = _getCtx(); const t = ctx.currentTime; const d = ctx.destination;
+    _osc(400 + idx * 80, 'sine', t, 0.08, 0.2, ctx, d);
+    _noise(t, 0.06, 0.15, ctx, d);
+}
+function somSlotJackpot() {
+    const ctx = _getCtx(); const t = ctx.currentTime; const d = ctx.destination;
+    const seq = [523,659,784,1047,1319,1047,1319,1568];
+    seq.forEach((f, i) => {
+        _osc(f, 'sine',     t + i * 0.09, 0.25, 0.3, ctx, d);
+        _osc(f * 2, 'triangle', t + i * 0.09, 0.15, 0.1, ctx, d);
+    });
+    for (let i = 0; i < 8; i++) _noise(t + i * 0.09, 0.05, 0.08, ctx, d);
+}
+function somSlotDoisIguais() {
+    const ctx = _getCtx(); const t = ctx.currentTime; const d = ctx.destination;
+    [523, 659, 784].forEach((f, i) => _osc(f, 'sine', t + i * 0.12, 0.3, 0.22, ctx, d));
+}
+function somSlotDerrota() {
+    const ctx = _getCtx(); const t = ctx.currentTime; const d = ctx.destination;
+    _osc(250, 'sawtooth', t,       0.25, 0.18, ctx, d);
+    _osc(200, 'sawtooth', t + 0.2, 0.35, 0.15, ctx, d);
+}
+
+// ─────────────────────────────────────────
+// 💣 CAMPO MINADO
+// ─────────────────────────────────────────
+function somMinaSegura() {
+    const ctx = _getCtx(); const t = ctx.currentTime; const d = ctx.destination;
+    _osc(880,  'sine', t,      0.07, 0.15, ctx, d);
+    _osc(1100, 'sine', t + 0.05, 0.07, 0.12, ctx, d);
+}
+function somMinaSeguraAlta(reveladas) {
+    // Tom sobe conforme revela mais células — tensão crescente
+    const ctx = _getCtx(); const t = ctx.currentTime; const d = ctx.destination;
+    const freq = 440 + reveladas * 40;
+    _osc(freq, 'sine',     t,      0.09, 0.18, ctx, d);
+    _osc(freq * 1.5, 'triangle', t + 0.04, 0.07, 0.1, ctx, d);
+}
+function somMinaExplosao() {
+    const ctx = _getCtx(); const t = ctx.currentTime; const d = ctx.destination;
+    _noise(t,       0.6,  0.5, ctx, d);
+    _noise(t + 0.1, 0.4,  0.35, ctx, d);
+    _osc(80,  'sawtooth', t,       0.5,  0.4, ctx, d);
+    _osc(60,  'sawtooth', t + 0.1, 0.4,  0.3, ctx, d);
+    _osc(40,  'sine',     t + 0.2, 0.35, 0.2, ctx, d);
+}
+function somMinaCashout() {
+    const ctx = _getCtx(); const t = ctx.currentTime; const d = ctx.destination;
+    const notas = [659, 784, 988, 1319];
+    notas.forEach((f, i) => {
+        _osc(f,     'sine',     t + i * 0.1, 0.25, 0.3, ctx, d);
+        _osc(f * 2, 'triangle', t + i * 0.1, 0.15, 0.1, ctx, d);
+    });
+}
+function somMinaIniciar() {
+    const ctx = _getCtx(); const t = ctx.currentTime; const d = ctx.destination;
+    _osc(440, 'sine', t,      0.06, 0.15, ctx, d);
+    _osc(550, 'sine', t + 0.08, 0.06, 0.15, ctx, d);
+    _osc(660, 'sine', t + 0.16, 0.1,  0.18, ctx, d);
+}
+
+// ─────────────────────────────────────────
+// 🚀 CRASH
+// ─────────────────────────────────────────
+let _crashSomInterval = null;
+function somCrashMotor() {
+    _pararMotorCrash();
+    const ctx = _getCtx(); const d = ctx.destination;
+    let mult = 1.0;
+    _crashSomInterval = setInterval(() => {
+        const t = ctx.currentTime;
+        const freq = 80 + mult * 30;
+        const dur  = 0.15;
+        _osc(freq,       'sawtooth', t, dur, 0.06, ctx, d);
+        _osc(freq * 1.5, 'square',   t, dur, 0.03, ctx, d);
+        mult = Math.min(mult + 0.05, 10);
+    }, 140);
+}
+function _pararMotorCrash() {
+    if (_crashSomInterval) { clearInterval(_crashSomInterval); _crashSomInterval = null; }
+}
+function somCrashExplosao() {
+    _pararMotorCrash();
+    const ctx = _getCtx(); const t = ctx.currentTime; const d = ctx.destination;
+    _noise(t,       0.7, 0.6, ctx, d);
+    _noise(t + 0.1, 0.5, 0.4, ctx, d);
+    _osc(100, 'sawtooth', t,       0.5, 0.5, ctx, d);
+    _osc(70,  'sawtooth', t + 0.1, 0.4, 0.4, ctx, d);
+    _osc(50,  'sine',     t + 0.2, 0.4, 0.3, ctx, d);
+}
+function somCrashSaque() {
+    _pararMotorCrash();
+    const ctx = _getCtx(); const t = ctx.currentTime; const d = ctx.destination;
+    const sino = [1047, 1319, 1568, 2093];
+    sino.forEach((f, i) => {
+        _osc(f, 'sine',     t + i * 0.12, 0.35, 0.3, ctx, d);
+        _osc(f, 'triangle', t + i * 0.12, 0.35, 0.1, ctx, d);
+    });
+}
+
+// ─────────────────────────────────────────
+// 🎮 HOOKING NAS FUNÇÕES DOS JOGOS
+// ─────────────────────────────────────────
+// — Roleta —
+const _girarRoletaOrig = girarRoleta;
+girarRoleta = async function() {
+    somRoletaGirar();
+    // Interceptar resultado via monkey-patch temporário em animação
+    const _orig_requestAnimationFrame = window.requestAnimationFrame;
+    await _girarRoletaOrig.apply(this, arguments);
+};
+// Hookar resultado da roleta via MutationObserver no elemento de resultado
+(function() {
+    function hookRoletaObserver() {
+        const el = document.getElementById('roletaResultado');
+        if (!el) return false;
+        new MutationObserver(() => {
+            const txt = el.textContent || '';
+            if (txt.includes('🎉')) somRoletaVitoria();
+            else if (txt.includes('Sem tickets') || txt.includes('Tente')) somRoletaDerrota();
+        }).observe(el, { childList: true, subtree: true, characterData: true });
+        return true;
+    }
+    if (!hookRoletaObserver()) {
+        const iv = setInterval(() => { if (hookRoletaObserver()) clearInterval(iv); }, 800);
+    }
+})();
+
+// — Caça-níquel —
+const _puxarSlotOrig = puxarSlot;
+puxarSlot = async function() {
+    somSlotGirar();
+    await _puxarSlotOrig.apply(this, arguments);
+};
+const _avaliarSlotOrig = avaliarSlot;
+avaliarSlot = async function(res) {
+    if (res[0] === res[1] && res[1] === res[2]) somSlotJackpot();
+    else if (res[0]===res[1] || res[1]===res[2] || res[0]===res[2]) somSlotDoisIguais();
+    else somSlotDerrota();
+    await _avaliarSlotOrig.apply(this, arguments);
+};
+// Som de cada rolo parando
+const _puxarSlotHookReels = setInterval(() => {
+    if (typeof puxarSlot !== 'undefined') {
+        clearInterval(_puxarSlotHookReels);
+        // Hookar sons dos reels via MutationObserver no resultado
+        const obsSlot = new MutationObserver(() => {
+            const el = document.getElementById('slotResultado');
+            if (!el) return;
+            const txt = el.textContent || '';
+            if (txt.includes('JACKPOT')) somSlotJackpot();
+        });
+        setTimeout(() => {
+            const el = document.getElementById('slotResultado');
+            if (el) obsSlot.observe(el, { childList: true, subtree: true });
+        }, 1500);
+    }
+}, 500);
+
+// — Campo Minado —
+const _iniciarMinaOrig = iniciarMina;
+iniciarMina = async function() {
+    somMinaIniciar();
+    await _iniciarMinaOrig.apply(this, arguments);
+};
+const _revelarCelulaOrig = revelarCelula;
+revelarCelula = function(idx) {
+    // Tocar som ANTES de revelar para feedback imediato
+    const cel = document.getElementById('mina_cel_' + idx);
+    if (cel && !cel.dataset.revelada) {
+        somMinaSeguraAlta(_minaReveladas || 0);
+    }
+    _revelarCelulaOrig.apply(this, arguments);
+};
+// Observer no resultado da mina
+(function() {
+    setTimeout(() => {
+        const el = document.getElementById('minaResultado');
+        if (!el) return;
+        new MutationObserver(() => {
+            const txt = el.textContent || '';
+            if (txt.includes('BOMBA') || txt.includes('💣')) somMinaExplosao();
+        }).observe(el, { childList: true, subtree: true, characterData: true });
+    }, 1500);
+})();
+const _sacarCrashOrig = typeof sacarCrash !== 'undefined' ? sacarCrash : null;
+// Hookar cashout da mina via botão
+setTimeout(() => {
+    const btnCash = document.getElementById('minaBtnCashout');
+    if (btnCash) {
+        const _origClick = btnCash.onclick;
+        btnCash.addEventListener('click', () => somMinaCashout(), true);
+    }
+}, 2000);
+
+// — Crash —
+const _iniciarCrashOrig = iniciarCrash;
+iniciarCrash = async function() {
+    somCrashMotor();
+    await _iniciarCrashOrig.apply(this, arguments);
+};
+const _sacarCrashHook = typeof sacarCrash !== 'undefined' ? sacarCrash : null;
+sacarCrash = async function() {
+    somCrashSaque();
+    if (_sacarCrashHook) await _sacarCrashHook.apply(this, arguments);
+};
+// Observer no status do crash para pegar explosão
+(function() {
+    setTimeout(() => {
+        const el = document.getElementById('crashStatusEl');
+        if (!el) return;
+        new MutationObserver(() => {
+            const txt = el.textContent || '';
+            if (txt.includes('CRASH')) somCrashExplosao();
+        }).observe(el, { childList: true, subtree: true, characterData: true });
+    }, 1500);
+})();
+// ====================================================================
 </script>
 
 </body>

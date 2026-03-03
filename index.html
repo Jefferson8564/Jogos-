@@ -701,7 +701,7 @@ async function liberarTicketsPendentes(phone) {
             const agora = new Date();
             const horarioHoje = new Date(agora);
             horarioHoje.setHours(hh, mm, 0, 0);
-            const ticketCriadoEm = gt.updated_at ? new Date(gt.updated_at) : null;
+            const ticketCriadoEm = gt.last_order ? new Date(gt.last_order) : null;
             if (agora >= horarioHoje && ticketCriadoEm && ticketCriadoEm < horarioHoje) {
                 deveLiberar = true;
             }
@@ -714,9 +714,7 @@ async function liberarTicketsPendentes(phone) {
             await sb.from('clientes').update({
                 tickets: (gt.tickets || 0) + gt.tickets_pendentes,
                 tickets_pendentes: 0,
-                tickets_liberar_em: null,
-                updated_at: new Date().toISOString()
-            }).eq('phone', phone);
+                tickets_liberar_em: null}).eq('phone', phone);
             console.log(`🎟️ ${gt.tickets_pendentes} ticket(s) liberados!`);
         }
     } catch(e) { console.warn('Erro ao liberar tickets:', e); }
@@ -730,7 +728,7 @@ async function carregarSaldoTickets() {
 
         // Buscar tickets e horário de liberação em paralelo
         const [{ data }, { data: cfgHorario }] = await Promise.all([
-            sb.from('clientes').select('tickets,tickets_pendentes,updated_at').eq('phone', user.phone).maybeSingle(),
+            sb.from('clientes').select('tickets,tickets_pendentes').eq('phone', user.phone).maybeSingle(),
             sb.from('configs').select('value').eq('key', 'horario_liberacao').maybeSingle()
         ]);
 
@@ -842,7 +840,7 @@ function _mostrarBtnVoltar() {
 async function gastarTicket() {
     const { data: row } = await sb.from('clientes').select('tickets').eq('phone', user.phone).maybeSingle();
     if (!row || row.tickets < 1) return false;
-    await sb.from('clientes').update({ tickets: row.tickets - 1, updated_at: new Date().toISOString() }).eq('phone', user.phone);
+    await sb.from('clientes').update({ tickets: row.tickets - 1 }).eq('phone', user.phone);
     await carregarSaldoTickets();
     return true;
 }
@@ -890,23 +888,25 @@ function abrirRoleta() {
 }
 
 function sortearRoleta() {
-    const fatias = _roletaFatias.length ? _roletaFatias : [{ label:'Tente de novo', chance:100, cor:'#2c3e50', premio:'Tente de novo!' }];
-    const total = fatias.reduce((s, f) => s + (Number(f.chance) || 0), 0);
-    let rand = Math.random() * total;
-    for (let i = 0; i < fatias.length; i++) { rand -= (Number(fatias[i].chance) || 0); if (rand <= 0) return i; }
+    const fatias = _roletaFatias.length ? _roletaFatias : [{ label:'Tente de novo', prob: 100, cor:'#2c3e50', premio:'Tente de novo!' }];
+    const total = fatias.reduce((s, f) => s + (Number(f.prob) || Number(f.chance) || 0), 0);
+    let rand = Math.random() * (total || 100);
+    for (let i = 0; i < fatias.length; i++) { rand -= (Number(fatias[i].prob) || Number(fatias[i].chance) || 0); if (rand <= 0) return i; }
     return 0;
 }
 
 function desenharRoleta(angulo = 0) {
     const canvas = document.getElementById('roletaCanvas');
     if (!canvas) return;
-    const fatias = _roletaFatias.length ? _roletaFatias : [{ label:'Carregando...', cor:'#333', chance:100 }];
+    const fatias = _roletaFatias.length ? _roletaFatias : [{ label:'Carregando...', cor:'#333', prob:100 }];
     const ctx = canvas.getContext('2d');
     const cx = canvas.width / 2, cy = canvas.height / 2, r = cx - 6;
-    const arco = (Math.PI * 2) / fatias.length;
+    const totalProb = fatias.reduce((s, f) => s + (Number(f.prob) || Number(f.chance) || 0), 0) || 100;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    fatias.forEach((seg, i) => {
-        const ini = angulo + i * arco - Math.PI / 2, fim = ini + arco;
+    let anguloAtual = angulo - Math.PI / 2;
+    fatias.forEach((seg) => {
+        const arco = ((Number(seg.prob) || Number(seg.chance) || 0) / totalProb) * Math.PI * 2;
+        const ini = anguloAtual, fim = ini + arco;
         ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, r, ini, fim); ctx.closePath();
         ctx.fillStyle = seg.cor || '#444'; ctx.fill();
         ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1.5; ctx.stroke();
@@ -915,6 +915,7 @@ function desenharRoleta(angulo = 0) {
         ctx.font = 'bold 11px Inter,sans-serif';
         ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 4;
         ctx.fillText(seg.label, r - 10, 4); ctx.restore();
+        anguloAtual += arco;
     });
     ctx.beginPath(); ctx.arc(cx, cy, 18, 0, Math.PI * 2);
     ctx.fillStyle = '#0a0015'; ctx.fill();
@@ -936,8 +937,17 @@ async function girarRoleta() {
     btn.textContent = 'Girando...';
     const fatias = _roletaFatias.length ? _roletaFatias : [];
     const sorteado = sortearRoleta();
-    const arco = (Math.PI * 2) / (fatias.length || 1);
-    const alvo = (-(sorteado * arco) - arco / 2 + Math.PI * 2 * 100) % (Math.PI * 2);
+    const totalProb = fatias.reduce((s, f) => s + (Number(f.prob) || Number(f.chance) || 0), 0) || 100;
+    // Calcular ângulo de início acumulado de cada fatia proporcional
+    let anguloAcum = 0;
+    const arcosFatias = fatias.map(f => {
+        const a = ((Number(f.prob) || Number(f.chance) || 0) / totalProb) * Math.PI * 2;
+        const inicio = anguloAcum;
+        anguloAcum += a;
+        return { inicio, arco: a };
+    });
+    const fatiaAlvo = arcosFatias[sorteado] || { inicio: 0, arco: Math.PI * 2 };
+    const alvo = (-(fatiaAlvo.inicio + fatiaAlvo.arco / 2) + Math.PI * 2 * 100) % (Math.PI * 2);
     const anguloAtualMod = _roletaAngulo % (Math.PI * 2);
     let delta = (alvo - anguloAtualMod + Math.PI * 2) % (Math.PI * 2);
     if (delta < 0.001) delta = Math.PI * 2;

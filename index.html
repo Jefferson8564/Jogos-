@@ -607,7 +607,7 @@ async function fazerLogin() {
     if (phone.startsWith('55') && phone.length >= 12) phone = phone.slice(2);
 
     // Buscar cliente na tabela cadastros
-    const { data: cliente } = await sb.from('cadastros').select('phone, name').eq('phone', phone).maybeSingle();
+    const { data: cliente } = await sb.from('clientes').select('phone, name').eq('phone', phone).maybeSingle();
     if (!cliente) {
         showToast('Número não encontrado no cardápio', 'error');
         return;
@@ -656,11 +656,12 @@ const _slotSimbolos = ['🍗','⭐','🍕','🌽','🍓','🍔'];
 async function carregarConfigJogos() {
     try {
         const [cfgRes, fatiasRes] = await Promise.all([
-            sb.from('game_config').select('valor').eq('chave','ticket_valor').single(),
+            sb.from('game_config').select('valor').eq('chave','ticket_valor_reais').single(),
             sb.from('roleta_config').select('*').order('ordem')
         ]);
-        if (cfgRes.data) _ticketValorConfig = parseFloat(cfgRes.data.valor) || 30;
+        if (cfgRes.data) _ticketValorConfig = parseFloat(cfgRes.data.valor) || 0;
         if (fatiasRes.data) _roletaFatias = fatiasRes.data;
+        desenharRoleta(0);
         carregarConfigMina().catch(() => {});
     } catch(e) { console.warn('Erro ao carregar config jogos:', e); }
     const info = document.getElementById('infoTicketValor');
@@ -1580,8 +1581,8 @@ async function carregarCliente(phone) {
     phone = phone.replace(/\D/g, '');
     if (phone.startsWith('55') && phone.length >= 12) phone = phone.slice(2);
 
-    // 1. Buscar dados do cliente em cadastros
-    const { data: cliente } = await sb.from('cadastros')
+    // 1. Buscar dados do cliente em clientes
+    const { data: cliente } = await sb.from('clientes')
         .select('phone, name')
         .eq('phone', phone)
         .maybeSingle();

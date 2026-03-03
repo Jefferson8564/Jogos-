@@ -606,7 +606,7 @@ async function fazerLogin() {
     if (phone.length < 10) { showToast('Digite um número válido', 'error'); return; }
     if (phone.startsWith('55') && phone.length >= 12) phone = phone.slice(2);
 
-    // Buscar cliente na tabela cadastros
+    // Buscar cliente na tabela clientes
     const { data: cliente } = await sb.from('clientes').select('phone, name').eq('phone', phone).maybeSingle();
     if (!cliente) {
         showToast('Número não encontrado no cardápio', 'error');
@@ -614,8 +614,6 @@ async function fazerLogin() {
     }
     user = { phone: cliente.phone, name: cliente.name };
     localStorage.setItem('jogos_phone', cliente.phone);
-    
-    
     
     mostrarJogos();
 }
@@ -659,9 +657,8 @@ async function carregarConfigJogos() {
             sb.from('configs').select('value').eq('key','ticket_valor_reais').single(),
             sb.from('configs').select('value').eq('key','roleta_fatias')
         ]);
-        if (cfgRes.data) _ticketValorConfig = parseFloat(cfgRes.data.value) || 0;
+        if (cfgRes.data) _ticketValorConfig = parseFloat(cfgRes.data.value) || 30;
         if (fatiasRes.data?.value) _roletaFatias = JSON.parse(fatiasRes.data.value);
-        desenharRoleta(0);
         carregarConfigMina().catch(() => {});
     } catch(e) { console.warn('Erro ao carregar config jogos:', e); }
     const info = document.getElementById('infoTicketValor');
@@ -688,8 +685,8 @@ async function liberarTicketsPendentes(phone) {
 
         let deveLiberar = false;
 
-        if (cfgHorario && cfgHorario.valor) {
-            const [hh, mm] = cfgHorario.valor.split(':').map(Number);
+        if (cfgHorario && cfgHorario.value) {
+            const [hh, mm] = cfgHorario.value.split(':').map(Number);
             const agora = new Date();
             const horarioHoje = new Date(agora);
             horarioHoje.setHours(hh, mm, 0, 0);
@@ -737,14 +734,14 @@ async function carregarSaldoTickets() {
         if (pendEl) {
             if (pendentes > 0) {
                 let msg = '⏳ +' + pendentes + ' ticket(s) a confirmar';
-                if (cfgHorario && cfgHorario.valor) {
-                    const proxima = calcularProximaLiberacaoTicket(cfgHorario.valor);
+                if (cfgHorario && cfgHorario.value) {
+                    const proxima = calcularProximaLiberacaoTicket(cfgHorario.value);
                     const agora = new Date();
                     const diffMs = proxima - agora;
                     const diffH = Math.floor(diffMs / 3600000);
                     const diffM = Math.floor((diffMs % 3600000) / 60000);
                     const tempoStr = diffH > 0 ? `${diffH}h ${diffM}min` : `${diffM}min`;
-                    msg = `⏳ +${pendentes} ticket(s) — libera às ${cfgHorario.valor} (faltam ${tempoStr})`;
+                    msg = `⏳ +${pendentes} ticket(s) — libera às ${cfgHorario.value} (faltam ${tempoStr})`;
                 }
                 pendEl.textContent = msg;
                 pendEl.style.display = 'block';
@@ -774,14 +771,14 @@ async function carregarMeusPremios() {
 
         lista.innerHTML = data.map(p => {
             const data_str = p.created_at ? new Date(p.created_at).toLocaleDateString('pt-BR') : '';
-            const resgatado = p.status === 'resgatado';
-            const qtd = 1;
+            const resgatado = p.resgatado;
+            const qtd = p.quantidade || 1;
             const cor = resgatado ? 'rgba(255,255,255,0.08)' : 'rgba(46,204,113,0.15)';
             const borda = resgatado ? 'rgba(255,255,255,0.1)' : 'rgba(46,204,113,0.3)';
             const badge = resgatado
                 ? '<span style="font-size:10px;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.4);border-radius:20px;padding:2px 10px;">✓ Resgatado</span>'
                 : '<span style="font-size:10px;background:rgba(46,204,113,0.25);color:#2ecc71;border-radius:20px;padding:2px 10px;font-weight:700;">🎁 Disponível</span>';
-            const desconto = p.total ? `<div style="font-size:11px;color:#f1c40f;margin-top:4px;">🏷 ${p.total}% de desconto</div>` : '';
+            const desconto = p.desconto_pct ? `<div style="font-size:11px;color:#f1c40f;margin-top:4px;">🏷 ${p.desconto_pct}% de desconto</div>` : '';
             const qtdBadge = qtd > 1
                 ? `<div style="font-size:13px;font-weight:900;color:#f1c40f;background:rgba(241,196,15,0.15);border:1.5px solid rgba(241,196,15,0.4);border-radius:12px;padding:3px 10px;margin-bottom:6px;display:inline-block;">x${qtd}</div>`
                 : '';
@@ -789,7 +786,7 @@ async function carregarMeusPremios() {
             <div style="background:${cor};border:1px solid ${borda};border-radius:16px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
                 <div style="flex:1;">
                     ${qtdBadge}
-                    <div style="font-size:13px;font-weight:800;color:white;">${p.items}</div>
+                    <div style="font-size:13px;font-weight:800;color:white;">${p.premio}</div>
                     ${desconto}
                     <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:4px;">${data_str}</div>
                 </div>
@@ -851,7 +848,8 @@ async function registrarPremio(premio, desconto_pct) {
         .maybeSingle();
 
     if (existente) {
-        // Já existe, não duplicar
+        // Incrementar quantidade do existente
+        // já existe, não duplicar
     } else {
         // Criar novo registro
         await sb.from('pedidos').insert({
@@ -949,7 +947,15 @@ async function girarRoleta() {
         // ✅ Som do resultado direto aqui, sem MutationObserver
         if (seg.tipo === 'nada' || !seg.premio) somRoletaDerrota();
         else somRoletaVitoria();
-        if (seg.premio && (seg.desconto_pct > 0 || seg.desconto_pct === null)) {
+        if (seg.premio && seg.tipo === 'tickets' && seg.desconto_pct > 0) {
+            // Tipo tickets: creditar direto no saldo do cliente
+            const qtdTickets = seg.desconto_pct;
+            sb.from('clientes').select('tickets').eq('phone', user.phone).maybeSingle().then(({ data: cl }) => {
+                const atual = cl ? (cl.tickets || 0) : 0;
+                sb.from('clientes').update({ tickets: atual + qtdTickets }).eq('phone', user.phone);
+                carregarSaldoTickets();
+            });
+        } else if (seg.premio && seg.tipo !== 'nada') {
             registrarPremio(seg.premio, seg.desconto_pct > 0 ? seg.desconto_pct : null);
         }
     }
@@ -1439,7 +1445,7 @@ async function _salvarHistoricoCrash(mult) {
         try { arr = hist?.data ? JSON.parse(hist.data.value) : []; } catch(e) { arr = []; }
         arr.unshift(+mult.toFixed(2));
         if (arr.length > 20) arr = arr.slice(0, 20);
-        await sb.from('configs').upsert({key:'crash_historico', value: JSON.stringify(arr)}, {onConflict:'key'});
+        await sb.from('configs').upsert({key:'crash_historico', value: JSON.stringify(arr)},{onConflict:'key'});
     } catch(e) {}
 }
 
@@ -1592,8 +1598,6 @@ async function carregarCliente(phone) {
     user = { phone: cliente.phone, name: cliente.name };
     localStorage.setItem('jogos_phone', cliente.phone);
 
-    
-    
     
 
     return user;

@@ -839,7 +839,7 @@ function _mostrarBtnVoltar() {
 // ── Gastar 1 ticket ──────────────────────────────────────────────────────────
 async function gastarTicket() {
     const { data: row } = await sb.from('clientes').select('tickets').eq('phone', user.phone).maybeSingle();
-    if (!row || row.tickets < 1) return false;
+    if (!row || !row.tickets || row.tickets < 1) return false;
     await sb.from('clientes').update({ tickets: row.tickets - 1 }).eq('phone', user.phone);
     await carregarSaldoTickets();
     return true;
@@ -890,9 +890,16 @@ function abrirRoleta() {
 function sortearRoleta() {
     const fatias = _roletaFatias.length ? _roletaFatias : [{ label:'Tente de novo', prob: 100, cor:'#2c3e50', premio:'Tente de novo!' }];
     const total = fatias.reduce((s, f) => s + (Number(f.prob) || Number(f.chance) || 0), 0);
-    let rand = Math.random() * (total || 100);
-    for (let i = 0; i < fatias.length; i++) { rand -= (Number(fatias[i].prob) || Number(fatias[i].chance) || 0); if (rand <= 0) return i; }
-    return 0;
+    if (!total) {
+        // Fatias sem probabilidade: distribuir igualmente
+        return Math.floor(Math.random() * fatias.length);
+    }
+    let rand = Math.random() * total;
+    for (let i = 0; i < fatias.length; i++) {
+        rand -= (Number(fatias[i].prob) || Number(fatias[i].chance) || 0);
+        if (rand <= 0) return i;
+    }
+    return fatias.length - 1;
 }
 
 function desenharRoleta(angulo = 0) {

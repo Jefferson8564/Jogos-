@@ -908,11 +908,11 @@ function desenharRoleta(angulo = 0) {
     const fatias = _roletaFatias.length ? _roletaFatias : [{ label:'Carregando...', cor:'#333', prob:100 }];
     const ctx = canvas.getContext('2d');
     const cx = canvas.width / 2, cy = canvas.height / 2, r = cx - 6;
-    const totalProb = fatias.reduce((s, f) => s + (Number(f.prob) || Number(f.chance) || 0), 0) || 100;
+    const arcoIgual = (Math.PI * 2) / fatias.length;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     let anguloAtual = angulo - Math.PI / 2;
     fatias.forEach((seg) => {
-        const arco = ((Number(seg.prob) || Number(seg.chance) || 0) / totalProb) * Math.PI * 2;
+        const arco = arcoIgual;
         const ini = anguloAtual, fim = ini + arco;
         ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, r, ini, fim); ctx.closePath();
         ctx.fillStyle = seg.cor || '#444'; ctx.fill();
@@ -944,17 +944,8 @@ async function girarRoleta() {
     btn.textContent = 'Girando...';
     const fatias = _roletaFatias.length ? _roletaFatias : [];
     const sorteado = sortearRoleta();
-    const totalProb = fatias.reduce((s, f) => s + (Number(f.prob) || Number(f.chance) || 0), 0) || 100;
-    // Calcular ângulo de início acumulado de cada fatia proporcional
-    let anguloAcum = 0;
-    const arcosFatias = fatias.map(f => {
-        const a = ((Number(f.prob) || Number(f.chance) || 0) / totalProb) * Math.PI * 2;
-        const inicio = anguloAcum;
-        anguloAcum += a;
-        return { inicio, arco: a };
-    });
-    const fatiaAlvo = arcosFatias[sorteado] || { inicio: 0, arco: Math.PI * 2 };
-    const alvo = (-(fatiaAlvo.inicio + fatiaAlvo.arco / 2) + Math.PI * 2 * 100) % (Math.PI * 2);
+    const arcoIgual = (Math.PI * 2) / (fatias.length || 1);
+    const alvo = (-(sorteado * arcoIgual) - arcoIgual / 2 + Math.PI * 2 * 100) % (Math.PI * 2);
     const anguloAtualMod = _roletaAngulo % (Math.PI * 2);
     let delta = (alvo - anguloAtualMod + Math.PI * 2) % (Math.PI * 2);
     if (delta < 0.001) delta = Math.PI * 2;

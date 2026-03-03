@@ -690,7 +690,7 @@ function calcularProximaLiberacaoTicket(horario) {
 async function liberarTicketsPendentes(phone) {
     try {
         const { data: gt } = await sb.from('clientes').select('tickets,tickets_pendentes,total_gasto,tickets_liberar_em').eq('phone', phone).maybeSingle();
-        if (!gt || !gt.tickets_pendentes || gt.tickets_pendentes <= 0) return;
+        if (!gt || !gt.tickets_pendentes || gt.tickets_pendentes <= 0 || gt.tickets_pendentes > 100) return;
 
         const { data: cfgHorario } = await sb.from('configs').select('value').eq('key', 'horario_liberacao').maybeSingle();
 
@@ -720,11 +720,15 @@ async function liberarTicketsPendentes(phone) {
     } catch(e) { console.warn('Erro ao liberar tickets:', e); }
 }
 
+let _liberacaoVerificada = false;
 async function carregarSaldoTickets() {
     if (!user?.phone) return;
     try {
-        // Tentar liberar tickets pendentes antes de exibir
-        await liberarTicketsPendentes(user.phone);
+        // Tentar liberar tickets pendentes apenas 1x por sessão
+        if (!_liberacaoVerificada) {
+            _liberacaoVerificada = true;
+            await liberarTicketsPendentes(user.phone);
+        }
 
         // Buscar tickets e horário de liberação em paralelo
         const [{ data }, { data: cfgHorario }] = await Promise.all([

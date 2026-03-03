@@ -614,9 +614,9 @@ async function fazerLogin() {
     }
     user = { phone: cliente.phone, name: cliente.name };
     localStorage.setItem('jogos_phone', cliente.phone);
-    // Garantir que existe registro em game_tickets
-    const { data: gt } = await sb.from('game_tickets').select('phone').eq('phone', cliente.phone).maybeSingle();
-    if (!gt) await sb.from('game_tickets').insert({ phone: cliente.phone, tickets: 0, total_gasto: 0 });
+    
+    
+    
     mostrarJogos();
 }
 
@@ -656,11 +656,11 @@ const _slotSimbolos = ['🍗','⭐','🍕','🌽','🍓','🍔'];
 async function carregarConfigJogos() {
     try {
         const [cfgRes, fatiasRes] = await Promise.all([
-            sb.from('game_config').select('valor').eq('chave','ticket_valor_reais').single(),
-            sb.from('roleta_config').select('*').order('ordem')
+            sb.from('configs').select('value').eq('key','ticket_valor_reais').single(),
+            sb.from('configs').select('value').eq('key','roleta_fatias')
         ]);
-        if (cfgRes.data) _ticketValorConfig = parseFloat(cfgRes.data.valor) || 0;
-        if (fatiasRes.data) _roletaFatias = fatiasRes.data;
+        if (cfgRes.data) _ticketValorConfig = parseFloat(cfgRes.data.value) || 0;
+        if (fatiasRes.data?.value) _roletaFatias = JSON.parse(fatiasRes.data.value);
         desenharRoleta(0);
         carregarConfigMina().catch(() => {});
     } catch(e) { console.warn('Erro ao carregar config jogos:', e); }
@@ -681,10 +681,10 @@ function calcularProximaLiberacaoTicket(horario) {
 // Libera tickets pendentes se o horário fixo do admin já passou
 async function liberarTicketsPendentes(phone) {
     try {
-        const { data: gt } = await sb.from('game_tickets').select('*').eq('phone', phone).maybeSingle();
+        const { data: gt } = await sb.from('clientes').select('tickets,tickets_pendentes,total_gasto,tickets_liberar_em').eq('phone', phone).maybeSingle();
         if (!gt || !gt.tickets_pendentes || gt.tickets_pendentes <= 0) return;
 
-        const { data: cfgHorario } = await sb.from('game_config').select('valor').eq('chave', 'horario_liberacao').maybeSingle();
+        const { data: cfgHorario } = await sb.from('configs').select('value').eq('key', 'horario_liberacao').maybeSingle();
 
         let deveLiberar = false;
 
@@ -703,7 +703,7 @@ async function liberarTicketsPendentes(phone) {
         }
 
         if (deveLiberar) {
-            await sb.from('game_tickets').update({
+            await sb.from('clientes').update({
                 tickets: (gt.tickets || 0) + gt.tickets_pendentes,
                 tickets_pendentes: 0,
                 tickets_liberar_em: null,
@@ -722,8 +722,8 @@ async function carregarSaldoTickets() {
 
         // Buscar tickets e horário de liberação em paralelo
         const [{ data }, { data: cfgHorario }] = await Promise.all([
-            sb.from('game_tickets').select('tickets, tickets_pendentes, updated_at').eq('phone', user.phone).maybeSingle(),
-            sb.from('game_config').select('valor').eq('chave', 'horario_liberacao').maybeSingle()
+            sb.from('clientes').select('tickets,tickets_pendentes,updated_at').eq('phone', user.phone).maybeSingle(),
+            sb.from('configs').select('value').eq('key', 'horario_liberacao').maybeSingle()
         ]);
 
         const tickets = data?.tickets ?? 0;
@@ -761,9 +761,10 @@ async function carregarMeusPremios() {
     if (!lista || !user?.phone) return;
     lista.innerHTML = '<div style="text-align:center;padding:20px;color:rgba(255,255,255,0.3);font-size:13px;">Carregando...</div>';
     try {
-        const { data, error } = await sb.from('game_premios')
+        const { data, error } = await sb.from('pedidos')
             .select('*')
-            .eq('phone', user.phone)
+            .eq('customer_phone', user.phone)
+            .eq('payment_method', 'PREMIO')
             .order('created_at', { ascending: false });
 
         if (error || !data || data.length === 0) {
@@ -773,14 +774,14 @@ async function carregarMeusPremios() {
 
         lista.innerHTML = data.map(p => {
             const data_str = p.created_at ? new Date(p.created_at).toLocaleDateString('pt-BR') : '';
-            const resgatado = p.resgatado;
-            const qtd = p.quantidade || 1;
+            const resgatado = p.status === 'resgatado';
+            const qtd = 1;
             const cor = resgatado ? 'rgba(255,255,255,0.08)' : 'rgba(46,204,113,0.15)';
             const borda = resgatado ? 'rgba(255,255,255,0.1)' : 'rgba(46,204,113,0.3)';
             const badge = resgatado
                 ? '<span style="font-size:10px;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.4);border-radius:20px;padding:2px 10px;">✓ Resgatado</span>'
                 : '<span style="font-size:10px;background:rgba(46,204,113,0.25);color:#2ecc71;border-radius:20px;padding:2px 10px;font-weight:700;">🎁 Disponível</span>';
-            const desconto = p.desconto_pct ? `<div style="font-size:11px;color:#f1c40f;margin-top:4px;">🏷 ${p.desconto_pct}% de desconto</div>` : '';
+            const desconto = p.total ? `<div style="font-size:11px;color:#f1c40f;margin-top:4px;">🏷 ${p.total}% de desconto</div>` : '';
             const qtdBadge = qtd > 1
                 ? `<div style="font-size:13px;font-weight:900;color:#f1c40f;background:rgba(241,196,15,0.15);border:1.5px solid rgba(241,196,15,0.4);border-radius:12px;padding:3px 10px;margin-bottom:6px;display:inline-block;">x${qtd}</div>`
                 : '';
@@ -788,7 +789,7 @@ async function carregarMeusPremios() {
             <div style="background:${cor};border:1px solid ${borda};border-radius:16px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
                 <div style="flex:1;">
                     ${qtdBadge}
-                    <div style="font-size:13px;font-weight:800;color:white;">${p.premio}</div>
+                    <div style="font-size:13px;font-weight:800;color:white;">${p.items}</div>
                     ${desconto}
                     <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:4px;">${data_str}</div>
                 </div>
@@ -831,9 +832,9 @@ function _mostrarBtnVoltar() {
 
 // ── Gastar 1 ticket ──────────────────────────────────────────────────────────
 async function gastarTicket() {
-    const { data: row } = await sb.from('game_tickets').select('tickets').eq('phone', user.phone).maybeSingle();
+    const { data: row } = await sb.from('clientes').select('tickets').eq('phone', user.phone).maybeSingle();
     if (!row || row.tickets < 1) return false;
-    await sb.from('game_tickets').update({ tickets: row.tickets - 1, updated_at: new Date().toISOString() }).eq('phone', user.phone);
+    await sb.from('clientes').update({ tickets: row.tickets - 1, updated_at: new Date().toISOString() }).eq('phone', user.phone);
     await carregarSaldoTickets();
     return true;
 }
@@ -841,30 +842,29 @@ async function gastarTicket() {
 // ── Registrar prêmio ganho ───────────────────────────────────────────────────
 async function registrarPremio(premio, desconto_pct) {
     // Tentar encontrar prêmio igual ainda não resgatado para incrementar quantidade
-    const { data: existente } = await sb.from('game_premios')
-        .select('id, quantidade')
-        .eq('phone', user.phone)
-        .eq('premio', premio)
-        .eq('desconto_pct', desconto_pct || null)
-        .eq('resgatado', false)
+    const { data: existente } = await sb.from('pedidos')
+        .select('id')
+        .eq('customer_phone', user.phone)
+        .eq('items', premio)
+        .eq('payment_method', 'PREMIO')
+        .eq('status', 'pendente')
         .maybeSingle();
 
     if (existente) {
-        // Incrementar quantidade do existente
-        await sb.from('game_premios')
-            .update({ quantidade: (existente.quantidade || 1) + 1 })
-            .eq('id', existente.id);
+        // Já existe, não duplicar
     } else {
         // Criar novo registro
-        await sb.from('game_premios').insert({
-            phone: user.phone, premio,
-            desconto_pct: desconto_pct || null,
-            resgatado: false,
-            quantidade: 1
+        await sb.from('pedidos').insert({
+            customer_phone: user.phone,
+            customer_name: user.name || '',
+            items: premio,
+            total: desconto_pct || 0,
+            payment_method: 'PREMIO',
+            status: 'pendente'
         });
     }
     if (desconto_pct) {
-        await sb.from('game_config').upsert({ chave: 'desconto_' + user.phone, valor: String(desconto_pct) }, { onConflict: 'chave' });
+        await sb.from('configs').upsert({ key: 'desconto_' + user.phone, value: String(desconto_pct) }, { onConflict: 'key' });
     }
     // Atualiza a lista de prêmios automaticamente
     carregarMeusPremios();
@@ -1029,9 +1029,9 @@ const MINA_BOMBAS_FIXAS = 5;
 
 async function carregarConfigMina() {
     const [{ data }, { data: dTexto }, { data: dProposta }] = await Promise.all([
-        sb.from('game_config').select('valor').eq('chave', 'mina_config').maybeSingle(),
-        sb.from('game_config').select('valor').eq('chave', 'mina_texto_topo').maybeSingle(),
-        sb.from('game_config').select('valor').eq('chave', 'mina_proposta').maybeSingle(),
+        sb.from('configs').select('value').eq('key', 'mina_config').maybeSingle(),
+        sb.from('configs').select('value').eq('key', 'mina_texto_topo').maybeSingle(),
+        sb.from('configs').select('value').eq('key', 'mina_proposta').maybeSingle(),
     ]);
 
     const textoTopo = dTexto?.valor || '';
@@ -1055,7 +1055,7 @@ async function carregarConfigMina() {
     }
 
     try {
-        const parsed = data ? JSON.parse(data.valor) : null;
+        const parsed = data ? JSON.parse(data.value) : null;
         if (parsed && parsed.niveis) {
             _minaConfig = parsed;
         } else if (Array.isArray(parsed)) {
@@ -1434,20 +1434,20 @@ function _animarExplosao(x, y) {
 
 async function _salvarHistoricoCrash(mult) {
     try {
-        const hist = await sb.from('game_config').select('valor').eq('chave','crash_historico').maybeSingle();
+        const hist = await sb.from('configs').select('value').eq('key','crash_historico').maybeSingle();
         let arr = [];
-        try { arr = hist?.data ? JSON.parse(hist.data.valor) : []; } catch(e) { arr = []; }
+        try { arr = hist?.data ? JSON.parse(hist.data.value) : []; } catch(e) { arr = []; }
         arr.unshift(+mult.toFixed(2));
         if (arr.length > 20) arr = arr.slice(0, 20);
-        await sb.from('game_config').upsert({chave:'crash_historico', valor: JSON.stringify(arr)}, {onConflict:'chave'});
+        await sb.from('configs').upsert({key:'crash_historico', value: JSON.stringify(arr)}, {onConflict:'key'});
     } catch(e) {}
 }
 
 async function _carregarHistoricoCrash() {
     try {
-        const { data } = await sb.from('game_config').select('valor').eq('chave','crash_historico').maybeSingle();
+        const { data } = await sb.from('configs').select('value').eq('key','crash_historico').maybeSingle();
         let arr = [];
-        try { arr = data ? JSON.parse(data.valor) : []; } catch(e) {}
+        try { arr = data ? JSON.parse(data.value) : []; } catch(e) {}
         const el = document.getElementById('crashHistorico');
         if (!el) return;
         el.innerHTML = arr.slice(0,12).map(m => {
@@ -1592,9 +1592,9 @@ async function carregarCliente(phone) {
     user = { phone: cliente.phone, name: cliente.name };
     localStorage.setItem('jogos_phone', cliente.phone);
 
-    // 2. Garantir registro em game_tickets
-    const { data: gt } = await sb.from('game_tickets').select('phone').eq('phone', cliente.phone).maybeSingle();
-    if (!gt) await sb.from('game_tickets').insert({ phone: cliente.phone, tickets: 0, total_gasto: 0 });
+    
+    
+    
 
     return user;
 }

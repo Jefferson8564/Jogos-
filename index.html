@@ -655,10 +655,21 @@ async function carregarConfigJogos() {
     try {
         const [cfgRes, fatiasRes] = await Promise.all([
             sb.from('configs').select('value').eq('key','ticket_valor_reais').single(),
-            sb.from('configs').select('value').eq('key','roleta_fatias')
+            sb.from('configs').select('value').eq('key','roleta_fatias').maybeSingle()
         ]);
         if (cfgRes.data) _ticketValorConfig = parseFloat(cfgRes.data.value) || 30;
-        if (fatiasRes.data?.value) _roletaFatias = JSON.parse(fatiasRes.data.value);
+        if (fatiasRes.data?.value) {
+            try { _roletaFatias = JSON.parse(fatiasRes.data.value); } catch(e) {}
+        }
+        if (!_roletaFatias.length) {
+            _roletaFatias = [
+                { label: '10% OFF', prob: 30, tipo: 'desconto', desconto_pct: 10, cor: '#e74c3c' },
+                { label: '20% OFF', prob: 20, tipo: 'desconto', desconto_pct: 20, cor: '#e67e22' },
+                { label: 'Coxinha Grátis', prob: 10, tipo: 'produto', desconto_pct: 0, cor: '#2ecc71' },
+                { label: 'Tente de novo', prob: 40, tipo: 'nada', desconto_pct: 0, cor: '#9080b8' }
+            ];
+        }
+        desenharRoleta(0);
         carregarConfigMina().catch(() => {});
     } catch(e) { console.warn('Erro ao carregar config jogos:', e); }
     const info = document.getElementById('infoTicketValor');

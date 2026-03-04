@@ -911,7 +911,7 @@ async function carregarMeusPremios() {
             <div style="background:${cor};border:1px solid ${borda};border-radius:16px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
                 <div style="flex:1;">
                     ${qtdBadge}
-                    <div style="font-size:13px;font-weight:800;color:white;">${p.premio}</div>
+                    <div style="font-size:13px;font-weight:800;color:white;">${p.items}</div>
                     ${desconto}
                     <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:4px;">${data_str}</div>
                 </div>
@@ -971,7 +971,7 @@ async function registrarPremio(premio, desconto_pct) {
             .eq('customer_phone', user.phone)
             .eq('items', premio)
             .eq('payment_method', 'PREMIO')
-            .eq('status', 'pendente')
+            .eq('status', 'confirmado')
             .maybeSingle();
 
         if (existente) {
@@ -979,14 +979,15 @@ async function registrarPremio(premio, desconto_pct) {
             const novaQtd = (existente.quantidade || 1) + 1;
             await sb.from('pedidos').update({ quantidade: novaQtd }).eq('id', existente.id);
         } else {
-            // Criar novo registro
+            // Criar novo registro — status 'confirmado' para cair instantaneamente
             await sb.from('pedidos').insert({
                 customer_phone: user.phone,
                 customer_name: user.name || '',
                 items: premio,
-                total: desconto_pct || 0,
+                total: 0,
+                desconto_pct: desconto_pct || null,
                 payment_method: 'PREMIO',
-                status: 'pendente'
+                status: 'confirmado'
             });
         }
         if (desconto_pct) {

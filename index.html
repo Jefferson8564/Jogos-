@@ -4396,7 +4396,7 @@ function abrirBomberman() {
 
 async function _bombAtualizarLobby() {
     try {
-        const cutoff=new Date(Date.now()-12000).toISOString();
+        const cutoff=new Date(Date.now()-20000).toISOString();
         const {data}=await sb.from('bomb_players')
             .select('slot')
             .eq('room_id', BOMB_ROOM_ID)
@@ -4443,7 +4443,7 @@ async function _bombInitOnline(roomId) {
     // Slot livre
     let mySlot=0;
     try {
-        const cutoff=new Date(Date.now()-12000).toISOString();
+        const cutoff=new Date(Date.now()-20000).toISOString();
         const {data}=await sb.from('bomb_players').select('slot').eq('room_id',roomId).gte('updated_at',cutoff);
         const used=new Set((data||[]).map(r=>r.slot));
         while(used.has(mySlot)&&mySlot<15) mySlot++;
@@ -4462,7 +4462,7 @@ async function _bombInitOnline(roomId) {
         keys:{},mobileKeys:{p1:{}},
         running:true,over:false,
         timeLeft:300,timerTick:0,lastTime:0,animFrame:null,
-        channel:null,presenceInterval:null,bombCounter:0,broadcastAccum:0,
+        channel:null,presenceInterval:null,bombCounter:0,broadcastAccum:99,
     };
     _bomb.players[myId]={
         id:myId,slot:mySlot,x:sp.x+0.5,y:sp.y+0.5,
@@ -4472,6 +4472,8 @@ async function _bombInitOnline(roomId) {
 
     _bombConectarCanal();
     _bombBindKeys();
+    // Heartbeat DB a cada 8s para manter presença
+    _bomb.presenceInterval = setInterval(_bombHeartbeatDB, 8000);
     requestAnimationFrame(_bombLoop);
     _bombUpdateHUD();
     _bombShowStatus('');
@@ -4486,12 +4488,15 @@ function _bombConectarCanal() {
 
     _bomb.channel.on('broadcast',{event:'state'},({payload})=>{
         if(!_bomb||payload.id===myId) return;
-        if (!_bomb.players[payload.id]){_bomb.players[payload.id]={id:payload.id,bombs:[]};_bombUpdateHUD();}
+        const isNew = !_bomb.players[payload.id];
+        if (isNew){_bomb.players[payload.id]={id:payload.id,bombs:[]};_bombUpdateHUD();}
         const p=_bomb.players[payload.id];
         Object.assign(p,{slot:payload.slot,x:payload.x,y:payload.y,lives:payload.lives,
             invincible:payload.invincible,maxBombs:payload.maxBombs,range:payload.range,
             speed:payload.speed,color:payload.color||BOMB_PCOLORS[payload.slot||0],
             label:payload.label||BOMB_PEMOJIS[payload.slot||0]});
+        // Responder imediatamente para o novo jogador nos ver
+        if (isNew) _bombPublicarEstado();
     });
 
     _bomb.channel.on('broadcast',{event:'bomb'},({payload})=>{
@@ -4534,14 +4539,29 @@ function _bombConectarCanal() {
 
     _bomb.channel.on('presence',{event:'leave'},({leftPresences})=>{
         if(!_bomb) return;
-        for(const lp of leftPresences) { if(lp.id&&_bomb.players[lp.id]){delete _bomb.players[lp.id];_bombUpdateHUD();}}
+        for(const lp of (leftPresences||[])) {
+            // presences retornam array de objetos com os dados do track()
+            const pid = lp.id || (lp[0]&&lp[0].id);
+            if(pid&&_bomb.players[pid]){delete _bomb.players[pid];_bombUpdateHUD();}
+        }
+    });
+    // Também detectar jogadores inativos pelo estado recebido
+    _bomb.channel.on('presence',{event:'sync'},()=>{
+        if(!_bomb||!_bomb.channel) return;
+        const state=_bomb.channel.presenceState();
+        const activeIds=new Set(Object.values(state).flat().map(p=>p.id).filter(Boolean));
+        activeIds.add(myId);
+        for(const pid of Object.keys(_bomb.players)){
+            if(!activeIds.has(pid)){delete _bomb.players[pid];_bombUpdateHUD();}
+        }
     });
 
     _bomb.channel.subscribe(async(status)=>{
         if(status==='SUBSCRIBED'){
+            // Presence tracking para detectar desconexões
             await _bomb.channel.track({id:_bomb.myId,slot:_bomb.mySlot});
+            // Broadcast inicial imediato para aparecer para quem já está
             _bombPublicarEstado();
-            _bomb.presenceInterval=setInterval(()=>{if(_bomb&&_bomb.channel)_bombPublicarEstado();},80);
         }
     });
 }
@@ -4549,21 +4569,22 @@ function _bombConectarCanal() {
 async function _bombPublicarEstado() {
     if(!_bomb||!_bomb.channel) return;
     const me=_bomb.players[_bomb.myId]; if(!me) return;
-    // Manter presença na tabela (heartbeat a cada ~5s via broadcastAccum)
-    if (_bomb.broadcastAccum===0) {
-        try {
-            await sb.from('bomb_players').upsert({
-                player_id:_bomb.myId, room_id:_bomb.roomId, slot:_bomb.mySlot,
-                updated_at: new Date().toISOString()
-            },{onConflict:'player_id,room_id'});
-        } catch(e){}
-    }
     try {
         await _bomb.channel.send({type:'broadcast',event:'state',payload:{
             id:_bomb.myId,slot:me.slot,x:+me.x.toFixed(2),y:+me.y.toFixed(2),
             lives:me.lives,invincible:me.invincible,maxBombs:me.maxBombs,
             range:me.range,speed:me.speed,color:me.color,label:me.label,
         }});
+    } catch(e){}
+}
+
+async function _bombHeartbeatDB() {
+    if(!_bomb) return;
+    try {
+        await sb.from('bomb_players').upsert({
+            player_id:_bomb.myId, room_id:_bomb.roomId, slot:_bomb.mySlot,
+            updated_at: new Date().toISOString()
+        },{onConflict:'player_id,room_id'});
     } catch(e){}
 }
 
@@ -4820,7 +4841,7 @@ function _bombLoop(ts) {
         for(const[k,pu]of Object.entries(_bomb.powerups)){pu.timer-=dt/16;if(pu.timer<=0)delete _bomb.powerups[k];}
         _bombCheckPowerups();
         _bomb.broadcastAccum+=dt;
-        if(_bomb.broadcastAccum>=65){_bomb.broadcastAccum=0;_bombPublicarEstado();}
+        if(_bomb.broadcastAccum>=100){_bomb.broadcastAccum=0;_bombPublicarEstado();}
     }
     _bombDraw();
     if(_bomb&&_bomb.running) _bomb.animFrame=requestAnimationFrame(_bombLoop);

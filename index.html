@@ -4470,6 +4470,27 @@ async function _bombInitOnline(roomId) {
         maxBombs:1,range:3,speed:4,
     };
 
+    // ── Criar 5 bots locais (👻) ─────────────────────────────────
+    const _botSpawns = _bombGetSpawnPoints();
+    const _usedSlots = new Set([mySlot]);
+    for(let b=0;b<5;b++){
+        let bSlot=10+b; // slots 10-14 reservados para bots
+        // Achar spawn livre
+        let bSp=_botSpawns[(bSlot)%_botSpawns.length]||{x:50+b*20,y:50+b*20};
+        const botId='bot_'+b;
+        _bomb.players[botId]={
+            id:botId, slot:bSlot, isBot:true,
+            x:bSp.x+0.5, y:bSp.y+0.5,
+            lives:3, invincible:0,
+            color:['#cc00ff','#ff6600','#00ccff','#ffcc00','#ff0066'][b],
+            label:'👻',
+            maxBombs:1, range:3, speed:2.5,
+            bombs:[], bombCooldown:0,
+            aiTarget:null, aiDir:{dx:0,dy:0}, aiDirTimer:0,
+            aiState:'wander', aiStateTimer:0,
+        };
+    }
+
     _bombConectarCanal();
     _bombBindKeys();
     // Heartbeat DB a cada 8s para manter presença
@@ -4645,16 +4666,26 @@ function _bombExplodeOnline(bomb) {
 
 function _bombVerificarFim() {
     if(!_bomb||_bomb.over) return;
+    const aliveHumans=Object.values(_bomb.players).filter(p=>!p.isBot&&p.lives>0);
+    const aliveBots=Object.values(_bomb.players).filter(p=>p.isBot&&p.lives>0);
     const alive=Object.values(_bomb.players).filter(p=>p.lives>0);
-    if(alive.length>1) return;
+    // Jogo termina quando só restar 1 humano vivo (ou nenhum), ou só bots
+    if(aliveHumans.length>1) return; // ainda tem humanos jogando
+    if(aliveHumans.length===1&&(aliveBots.length>0||alive.length>1)) return; // 1 humano + bots = humano venceu
     _bomb.over=true; _bomb.running=false;
     const go=document.getElementById('bombGameOver');
     const e=document.getElementById('bombGOEmoji');
     const t=document.getElementById('bombGOTitle');
     const s=document.getElementById('bombGOSub');
     const me=_bomb.players[_bomb.myId];
-    if(me&&me.lives>0){e.textContent='🏆';t.textContent='Você Venceu!';s.textContent='Último sobrevivente! 🎉';}
-    else{e.textContent='💀';t.textContent='Você foi eliminado!';s.textContent=alive.length===1?`${alive[0].label} venceu!`:'Todos eliminados!';}
+    if(me&&me.lives>0){
+        e.textContent='🏆';t.textContent='Você Venceu!';
+        s.textContent=aliveBots.length>0?'Sobrou você e os bots... mas você é o campeão! 🎉':'Último sobrevivente! 🎉';
+    } else {
+        e.textContent='💀';t.textContent='Você foi eliminado!';
+        const winner=aliveHumans[0]||aliveBots[0];
+        s.textContent=winner?(winner.isBot?'Um 👻 bot venceu a partida!':`${winner.label} venceu!`):'Todos eliminados!';
+    }
     go.style.display='flex';
 }
 
@@ -4722,7 +4753,10 @@ function _bombCanWalk(x,y,mg){
 function _bombUpdateHUD() {
     if(!_bomb) return;
     const players=Object.values(_bomb.players);
-    const alive=players.filter(p=>p.lives>0).length;
+    const humans=players.filter(p=>!p.isBot);
+    const bots=players.filter(p=>p.isBot);
+    const aliveHumans=humans.filter(p=>p.lives>0).length;
+    const aliveBots=bots.filter(p=>p.lives>0).length;
     const hud=document.getElementById('bombPlayersHUD');
     if(hud) hud.innerHTML=players.map(p=>{
         const hearts=Array.from({length:3},(_,i)=>i<p.lives?'❤️':'🖤').join('');
@@ -4731,7 +4765,7 @@ function _bombUpdateHUD() {
             <span style="font-size:13px;">${p.label||'❓'}</span><span style="font-size:10px;letter-spacing:-1px;">${hearts}</span></div>`;
     }).join('');
     const ac=document.getElementById('bombAliveCount');
-    if(ac) ac.textContent=`${alive}/${players.length}`;
+    if(ac) ac.textContent=`👤${aliveHumans} 👻${aliveBots}`;
     const m=Math.floor(_bomb.timeLeft/60),sec=_bomb.timeLeft%60;
     const ti=document.getElementById('bombTimer');
     if(ti) ti.textContent=m+':'+(sec<10?'0':'')+sec;
@@ -4795,19 +4829,33 @@ function _bombDraw() {
             ctx.fillStyle=`rgba(255,255,180,${a*0.6})`;ctx.fillRect(px+ts*0.28,py+ts*0.28,ts*0.44,ts*0.44);
         }
     }
-    // Jogadores
+    // Jogadores e Bots
     for(const p of Object.values(_bomb.players)){
         if(p.lives<=0) continue;
         if(p.invincible>0&&Math.floor(p.invincible/7)%2===0) continue;
         const px=Math.round((p.x-camX)*ts),py=Math.round((p.y-camY)*ts);
         if(px<-ts||py<-ts||px>cW+ts||py>cH+ts) continue;
-        ctx.fillStyle='rgba(0,0,0,0.28)';ctx.beginPath();ctx.ellipse(px+ts/2+1,py+ts*0.84,ts*0.28,ts*0.08,0,0,Math.PI*2);ctx.fill();
-        ctx.fillStyle=p.color||'#fff';
         const isMe=p.id===_bomb.myId;
-        ctx.beginPath();ctx.arc(px+ts/2,py+ts*0.47,ts*(isMe?0.41:0.36),0,Math.PI*2);ctx.fill();
-        if(isMe){ctx.strokeStyle='rgba(255,255,255,0.85)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(px+ts/2,py+ts*0.47,ts*0.41,0,Math.PI*2);ctx.stroke();}
-        ctx.font=(ts*(isMe?0.54:0.48)|0)+'px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
-        ctx.fillText(p.label||'❓',px+ts/2,py+ts*0.43);
+        if(p.isBot){
+            // Visual flutuante do bot 👻
+            const bob=Math.sin(Date.now()*0.004+p.slot)*ts*0.06;
+            // Aura
+            ctx.shadowColor=p.color||'#cc00ff'; ctx.shadowBlur=ts*0.5;
+            ctx.fillStyle=(p.color||'#cc00ff')+'33';
+            ctx.beginPath();ctx.arc(px+ts/2,py+ts*0.47+bob,ts*0.44,0,Math.PI*2);ctx.fill();
+            ctx.shadowBlur=0; ctx.shadowColor='transparent';
+            // Emoji
+            ctx.font=(ts*0.6|0)+'px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+            ctx.fillText('👻',px+ts/2,py+ts*0.44+bob);
+        } else {
+            // Sombra jogador humano
+            ctx.fillStyle='rgba(0,0,0,0.28)';ctx.beginPath();ctx.ellipse(px+ts/2+1,py+ts*0.84,ts*0.28,ts*0.08,0,0,Math.PI*2);ctx.fill();
+            ctx.fillStyle=p.color||'#fff';
+            ctx.beginPath();ctx.arc(px+ts/2,py+ts*0.47,ts*(isMe?0.41:0.36),0,Math.PI*2);ctx.fill();
+            if(isMe){ctx.strokeStyle='rgba(255,255,255,0.85)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(px+ts/2,py+ts*0.47,ts*0.41,0,Math.PI*2);ctx.stroke();}
+            ctx.font=(ts*(isMe?0.54:0.48)|0)+'px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+            ctx.fillText(p.label||'❓',px+ts/2,py+ts*0.43);
+        }
     }
     // Mini-mapa
     const mmS=72,mmT=mmS/BOMB_MAP_SIZE,mx=cW-mmS-6,my=cH-mmS-6;
@@ -4819,10 +4867,145 @@ function _bombDraw() {
     ctx.strokeRect(mx+camX*mmT,my+camY*mmT,BOMB_VIEW*mmT,BOMB_VIEW*mmT);
     for(const p of Object.values(_bomb.players)){
         if(p.lives<=0) continue;
-        ctx.fillStyle=p.color||'#fff';
-        const ds=p.id===_bomb.myId?4:2.5;
-        ctx.fillRect(mx+p.x*mmT-ds/2,my+p.y*mmT-ds/2,ds,ds);
+        ctx.fillStyle=p.isBot?'rgba(204,0,255,0.7)':(p.color||'#fff');
+        const ds=p.id===_bomb.myId?4:p.isBot?2:2.5;
+        ctx.beginPath();ctx.arc(mx+p.x*mmT,my+p.y*mmT,ds/2,0,Math.PI*2);ctx.fill();
     }
+}
+
+// ─── IA dos Bots 👻 ────────────────────────────────────────────────
+function _bombTickBots(dt) {
+    if(!_bomb) return;
+    const allPlayers = Object.values(_bomb.players);
+    const humanPlayers = allPlayers.filter(p=>!p.isBot&&p.lives>0);
+
+    for(const bot of allPlayers) {
+        if(!bot.isBot||bot.lives<=0) continue;
+
+        // Invencibilidade
+        if(bot.invincible>0) bot.invincible=Math.max(0,bot.invincible-dt/16);
+
+        // Cooldown de bomba
+        if(bot.bombCooldown>0) bot.bombCooldown-=dt/16;
+
+        // Timer de estado
+        bot.aiStateTimer-=dt/16;
+        bot.aiDirTimer-=dt/16;
+
+        const spd=bot.speed*(dt/1000)*10;
+        const bx=Math.floor(bot.x), by=Math.floor(bot.y);
+
+        // ── Encontrar alvo mais próximo (humano ou bot inimigo) ──
+        let nearestTarget=null, nearestDist=Infinity;
+        for(const p of allPlayers){
+            if(p.id===bot.id||p.lives<=0) continue;
+            const d=Math.hypot(p.x-bot.x,p.y-bot.y);
+            if(d<nearestDist){nearestDist=d;nearestTarget=p;}
+        }
+
+        // ── Detectar perigo: explosão ou bomba próxima ──
+        let inDanger=false;
+        for(const bomb of Object.values(_bomb.bombs)){
+            if(Math.hypot(bomb.x-bx,bomb.y-by)<=bomb.range+1){inDanger=true;break;}
+        }
+        for(const exp of _bomb.explosions){
+            for(const c of exp.cells){
+                if(c.x===bx&&c.y===by){inDanger=true;break;}
+            }
+            if(inDanger) break;
+        }
+
+        // ── Máquina de estados ──────────────────────────────────
+        if(inDanger) {
+            bot.aiState='flee';
+            bot.aiStateTimer=60;
+        } else if(bot.aiStateTimer<=0) {
+            // Alternar entre chase e wander
+            if(nearestTarget && nearestDist<25) {
+                bot.aiState='chase';
+                bot.aiStateTimer=80+Math.random()*60;
+            } else {
+                bot.aiState='wander';
+                bot.aiStateTimer=40+Math.random()*80;
+            }
+        }
+
+        // ── Calcular direção ──────────────────────────────────
+        let dx=0,dy=0;
+
+        if(bot.aiState==='flee') {
+            // Fugir de todas as bombas
+            let fx=0,fy=0;
+            for(const bomb of Object.values(_bomb.bombs)){
+                const bdx=bot.x-bomb.x, bdy=bot.y-bomb.y;
+                const d=Math.hypot(bdx,bdy)||1;
+                fx+=bdx/d; fy+=bdy/d;
+            }
+            if(fx===0&&fy===0){fx=Math.random()-0.5;fy=Math.random()-0.5;}
+            const fd=Math.hypot(fx,fy)||1; dx=fx/fd; dy=fy/fd;
+
+        } else if(bot.aiState==='chase' && nearestTarget) {
+            // Perseguir alvo mais próximo
+            const tdx=nearestTarget.x-bot.x, tdy=nearestTarget.y-bot.y;
+            const td=Math.hypot(tdx,tdy)||1;
+            dx=tdx/td; dy=tdy/td;
+
+            // Plantar bomba se estiver perto do alvo
+            if(nearestDist<3&&bot.bombCooldown<=0&&
+               Object.values(_bomb.bombs).filter(b=>b.ownerId===bot.id).length<bot.maxBombs){
+                _bombBotPlantarBomba(bot);
+                bot.bombCooldown=140;
+            }
+
+        } else {
+            // Wander: mudar direção aleatória periodicamente
+            if(bot.aiDirTimer<=0){
+                const dirs=[[1,0],[-1,0],[0,1],[0,-1],[0.7,0.7],[-0.7,0.7],[0.7,-0.7],[-0.7,-0.7]];
+                const d=dirs[Math.floor(Math.random()*dirs.length)];
+                bot.aiDir={dx:d[0],dy:d[1]};
+                bot.aiDirTimer=30+Math.random()*50;
+            }
+            dx=bot.aiDir.dx; dy=bot.aiDir.dy;
+
+            // Plantar bomba aleatoriamente ao passear (menos frequente)
+            if(bot.bombCooldown<=0&&Math.random()<0.003&&
+               Object.values(_bomb.bombs).filter(b=>b.ownerId===bot.id).length<bot.maxBombs){
+                _bombBotPlantarBomba(bot);
+                bot.bombCooldown=180;
+            }
+        }
+
+        // ── Mover bot com colisão ──────────────────────────────
+        if(dx!==0||dy!==0){
+            const mg=0.32;
+            const nx=bot.x+dx*spd, ny=bot.y+dy*spd;
+            let movedX=false,movedY=false;
+            if(_bombCanWalk(nx,bot.y,mg)){bot.x=nx;movedX=true;}
+            if(_bombCanWalk(bot.x,ny,mg)){bot.y=ny;movedY=true;}
+            // Se travou, mudar direção
+            if(!movedX&&!movedY){
+                bot.aiDir={dx:Math.random()-0.5,dy:Math.random()-0.5};
+                bot.aiDirTimer=20;
+            }
+            bot.x=Math.max(0.5,Math.min(BOMB_MAP_SIZE-0.5,bot.x));
+            bot.y=Math.max(0.5,Math.min(BOMB_MAP_SIZE-0.5,bot.y));
+        }
+    }
+
+    // Tick das bombas dos bots
+    for(const[bid,b]of Object.entries(_bomb.bombs)){
+        if(!bid.startsWith('bot_')) continue;
+        b.timer-=dt/16;
+        if(b.timer<=0) _bombExplodeOnline(b);
+    }
+}
+
+function _bombBotPlantarBomba(bot) {
+    const bx=Math.floor(bot.x), by=Math.floor(bot.y);
+    if(Object.values(_bomb.bombs).find(b=>b.x===bx&&b.y===by)) return;
+    const bombId=bot.id+'_b'+Date.now();
+    _bomb.bombs[bombId]={id:bombId,x:bx,y:by,timer:120,ownerId:bot.id,range:bot.range};
+    _bombSetTile(bx,by,BOMB_WALL);
 }
 
 // ─── Loop ──────────────────────────────────────────────────────────
@@ -4840,6 +5023,7 @@ function _bombLoop(ts) {
         for(let i=_bomb.explosions.length-1;i>=0;i--){_bomb.explosions[i].timer-=dt/16;if(_bomb.explosions[i].timer<=0)_bomb.explosions.splice(i,1);}
         for(const[k,pu]of Object.entries(_bomb.powerups)){pu.timer-=dt/16;if(pu.timer<=0)delete _bomb.powerups[k];}
         _bombCheckPowerups();
+        _bombTickBots(dt);
         _bomb.broadcastAccum+=dt;
         if(_bomb.broadcastAccum>=100){_bomb.broadcastAccum=0;_bombPublicarEstado();}
     }

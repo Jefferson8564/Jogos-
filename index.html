@@ -164,6 +164,9 @@
     </div>
 </div>
 
+<!-- Badge tickets pendentes -->
+<div id="ticketsPendentes" style="display:none;text-align:center;font-size:11px;font-weight:700;color:rgba(241,196,15,0.8);background:rgba(241,196,15,0.08);border-bottom:1px solid rgba(241,196,15,0.15);padding:6px 16px;"></div>
+
 <!-- Login Area -->
 <div id="loginArea">
     <h2>🎟 Acesse seus Jogos</h2>
@@ -962,15 +965,30 @@ async function gastarTicket() {
 // ── Registrar prêmio ganho ───────────────────────────────────────────────────
 async function registrarPremio(premio, desconto_pct) {
     try {
-        // Sempre insere um novo registro separado para cada cupom ganho
-        await sb.from('pedidos').insert({
-            customer_phone: user.phone,
-            customer_name: user.name || '',
-            items: premio,
-            total: desconto_pct || 0,
-            payment_method: 'PREMIO',
-            status: 'pendente'
-        });
+        // Tentar encontrar prêmio igual ainda não resgatado para incrementar quantidade
+        const { data: existente } = await sb.from('pedidos')
+            .select('id, quantidade')
+            .eq('customer_phone', user.phone)
+            .eq('items', premio)
+            .eq('payment_method', 'PREMIO')
+            .eq('status', 'pendente')
+            .maybeSingle();
+
+        if (existente) {
+            // Incrementar quantidade do existente
+            const novaQtd = (existente.quantidade || 1) + 1;
+            await sb.from('pedidos').update({ quantidade: novaQtd }).eq('id', existente.id);
+        } else {
+            // Criar novo registro
+            await sb.from('pedidos').insert({
+                customer_phone: user.phone,
+                customer_name: user.name || '',
+                items: premio,
+                total: desconto_pct || 0,
+                payment_method: 'PREMIO',
+                status: 'pendente'
+            });
+        }
         if (desconto_pct) {
             await sb.from('configs').upsert({ key: 'desconto_' + user.phone, value: String(desconto_pct) }, { onConflict: 'key' });
         }
@@ -992,10 +1010,10 @@ function abrirRoleta() {
 }
 
 function sortearRoleta() {
-    const fatias = _roletaFatias.length ? _roletaFatias : [{ label:'Tente de novo', chance:100, cor:'#2c3e50', premio:'Tente de novo!' }];
-    const total = fatias.reduce((s, f) => s + (Number(f.chance) || 0), 0);
+    const fatias = _roletaFatias.length ? _roletaFatias : [{ label:'Tente de novo', prob:100, cor:'#2c3e50', premio:'Tente de novo!' }];
+    const total = fatias.reduce((s, f) => s + (Number(f.prob) || Number(f.chance) || 0), 0);
     let rand = Math.random() * total;
-    for (let i = 0; i < fatias.length; i++) { rand -= (Number(fatias[i].chance) || 0); if (rand <= 0) return i; }
+    for (let i = 0; i < fatias.length; i++) { rand -= (Number(fatias[i].prob) || Number(fatias[i].chance) || 0); if (rand <= 0) return i; }
     return 0;
 }
 
@@ -1055,12 +1073,13 @@ async function girarRoleta() {
         _roletaGirando = false;
         btn.disabled = false; btn.innerHTML = '🎡 Girar! (1 ticket)';
         const seg = fatias[sorteado] || {};
+        const premioTexto = seg.premio || seg.label || '';
         document.getElementById('roletaResultado').innerHTML =
             '🎉 <b>' + (seg.label || '') + '</b><br><span style="font-size:12px;color:rgba(255,255,255,0.7);">' + (seg.premio || '') + '</span>';
         // ✅ Som do resultado direto aqui, sem MutationObserver
-        if (seg.tipo === 'nada' || !seg.premio) somRoletaDerrota();
+        if (seg.tipo === 'nada' || !premioTexto) somRoletaDerrota();
         else somRoletaVitoria();
-        if (seg.premio && seg.tipo === 'tickets' && seg.desconto_pct > 0) {
+        if (seg.tipo === 'tickets' && seg.desconto_pct > 0) {
             // Tipo tickets: creditar direto no saldo do cliente
             const qtdTickets = seg.desconto_pct;
             (async () => {
@@ -1070,8 +1089,10 @@ async function girarRoleta() {
                 await carregarSaldoTickets();
                 showToast('🎟 +' + qtdTickets + ' ticket(s) adicionados!', 'success', 3000);
             })();
-        } else if (seg.premio && seg.tipo !== 'nada') {
-            registrarPremio(seg.premio, seg.desconto_pct > 0 ? seg.desconto_pct : null);
+        } else if (seg.tipo === 'desconto' && seg.desconto_pct > 0) {
+            registrarPremio(premioTexto, seg.desconto_pct);
+        } else if (premioTexto && seg.tipo !== 'nada') {
+            registrarPremio(premioTexto, seg.desconto_pct > 0 ? seg.desconto_pct : null);
         }
     }
     requestAnimationFrame(animar);

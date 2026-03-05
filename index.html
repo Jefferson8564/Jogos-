@@ -1156,11 +1156,13 @@ async function salvarPremio(premio, jogo) {
       ? `🎮 ${jogo} — Cupom ${premio.valor2 || premio.codigo}% OFF (${premio.codigo})`
       : `🎮 ${jogo} — Prêmio: ${premio.nome}${premio.codigo ? ' ('+premio.codigo+')' : ''}`;
 
+    const pctDesconto = premio.tipo === 'desconto' ? (premio.valor2 || parseInt(premio.codigo) || 0) : 0;
+
     await sb.from('pedidos').insert({
       customer_name:  localStorage.getItem('salgados_user') ? JSON.parse(localStorage.getItem('salgados_user')).name : userPhone,
       customer_phone: userPhone,
       items:          descricao,
-      total:          0,
+      total:          pctDesconto,
       payment_method: 'PREMIO',
       status:         'pendente',
     });

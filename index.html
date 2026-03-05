@@ -1014,9 +1014,10 @@ async function initJogos() {
 
   try {
     // Carregar dados do cliente e configs em paralelo
-    const [cliRes, cfgRes] = await Promise.all([
+    const [cliRes, cfgRes, configsRes] = await Promise.all([
       sb.from('clientes').select('id,tickets,diamantes').eq('phone', userPhone).maybeSingle(),
-      sb.from('jogos_configs').select('jogo,chave,valor')
+      sb.from('jogos_configs').select('jogo,chave,valor'),
+      sb.from('configs').select('key,value')
     ]);
 
     // Cliente
@@ -1024,6 +1025,27 @@ async function initJogos() {
       clienteId = cliRes.data.id;
       tickets   = cliRes.data.tickets   || 0;
       moedas    = cliRes.data.diamantes || 0;
+    }
+
+    // Configs gerais (ticket e diamante)
+    if (configsRes.data) {
+      const getCfg = (key, fallback) => {
+        const row = configsRes.data.find(r => r.key === key);
+        return row ? row.value : fallback;
+      };
+      const ticketValor = getCfg('ticket_valor_reais', '30');
+      const ticketQtd   = parseInt(getCfg('ticket_quantidade', '1'));
+      const diamValor   = getCfg('diamante_valor_reais', '30');
+      const diamQtd     = parseInt(getCfg('diamante_quantidade', '1'));
+      const msgEl = document.getElementById('lobbyTicketMsg');
+      if (msgEl) {
+        const tv = parseFloat(ticketValor).toFixed(2).replace('.',',');
+        const dv = parseFloat(diamValor).toFixed(2).replace('.',',');
+        msgEl.innerHTML =
+          'A cada <strong>R$ ' + tv + '</strong> em compras '
+          + 'você ganha <strong>' + ticketQtd + ' ticket' + (ticketQtd !== 1 ? 's' : '') + '</strong> 🎟️ e '
+          + '<strong>' + diamQtd + ' diamante' + (diamQtd !== 1 ? 's' : '') + '</strong> 💎!';
+      }
     }
 
     // Configs dos jogos
@@ -1144,9 +1166,6 @@ const SLICE    = (2 * Math.PI) / N; // sempre igual, independente da chance
 // ── NAVEGAÇÃO ─────────────────────────────────────────────────────────
 function abrirRoleta() {
   if (tickets < 1) { toast('😢 Sem tickets! Faça um pedido para ganhar.'); return; }
-  tickets--;
-  deductTicket();
-  document.getElementById('ticketCount').textContent = fmt(tickets);
   document.getElementById('screenRoleta').classList.add('open');
   // Fullscreen no mobile
   try { document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); } catch(e){}

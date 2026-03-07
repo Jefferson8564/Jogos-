@@ -600,11 +600,11 @@ header {
     <div class="logo">🍗 O Rei da Coxinha <small>Centro de Jogos</small></div>
     <div class="header-tickets">
       <span class="header-ticket-emoji">🎟️</span>
-      <span class="header-ticket-num" id="ticketCount">3</span>
+      <span class="header-ticket-num" id="ticketCount">0</span>
     </div>
     <div class="header-tickets" style="border-color:rgba(192,160,0,0.4);">
       <span class="header-ticket-emoji">💎</span>
-      <span class="header-ticket-num" id="moedaCount" style="color:#e0c84a;">50</span>
+      <span class="header-ticket-num" id="moedaCount" style="color:#e0c84a;">0</span>
     </div>
   </div>
 </header>
@@ -642,7 +642,7 @@ header {
         <span class="game-card-emoji">💣</span>
         <div class="game-card-name">Campo Minado</div>
         <div class="game-card-desc">Abra todas as células sem explodir!</div>
-        <div style="margin-top:8px;display:inline-flex;align-items:center;gap:4px;background:rgba(224,200,74,0.12);border:1px solid rgba(224,200,74,0.3);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:900;color:#e0c84a;">💎 1 moeda</div>
+        <div style="margin-top:8px;display:inline-flex;align-items:center;gap:4px;background:rgba(255,215,0,0.12);border:1px solid rgba(255,215,0,0.3);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:900;color:var(--yellow);">🎟️ 1 ticket</div>
       </div>
 
       <div class="game-card foguete" onclick="abrirFoguete()">
@@ -690,7 +690,7 @@ header {
     <span class="fs-title">🎡 Roleta de Prêmios</span>
     <div class="fs-tickets">
       <span class="fs-tickets-icon">🎟️</span>
-      <span class="fs-tickets-num" id="fsRoletaTickets">999</span>
+      <span class="fs-tickets-num" id="fsRoletaTickets">0</span>
     </div>
   </div>
 
@@ -735,7 +735,7 @@ header {
     <span class="fs-title">🚀 Foguete</span>
     <div class="fs-tickets">
       <span class="fs-tickets-icon">🎟️</span>
-      <span class="fs-tickets-num" id="fsFogueteTickets">999</span>
+      <span class="fs-tickets-num" id="fsFogueteTickets">0</span>
     </div>
   </div>
 
@@ -1299,6 +1299,7 @@ function girar() {
   spinning=true;
   somGiro();
   tickets--;
+  deductTicket();
   atualizarTicketUI();
   document.getElementById('spinBtn').disabled=true;
   document.getElementById('wheelHub').style.pointerEvents='none';
@@ -1660,9 +1661,6 @@ function resetRocket() {
 
 function abrirFoguete() {
   if (tickets < 1) { toast('😢 Sem tickets! Faça um pedido para ganhar.'); return; }
-  tickets--;
-  deductTicket();
-  document.getElementById('ticketCount').textContent = fmt(tickets);
   document.getElementById('screenFoguete').classList.add('open');
   try { document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); } catch(e){}
   setTimeout(() => {
@@ -1873,6 +1871,7 @@ function jogarFoguete() {
   if (tickets <= 0) { toast('Sem tickets! Faça um pedido para ganhar 🎟️'); return; }
 
   tickets--;
+  deductTicket();
   atualizarTicketUI();
   atualizarTicketFogueteUI();
 
@@ -2646,6 +2645,7 @@ let memMatched=0, memErrors=0, memStartTime=null, memTimerInt=null, memTotalPare
 function abrirMemoria() {
   if (moedas < 1) { toast('😢 Sem moedas! Jogue outros jogos para ganhar.'); return; }
   moedas--;
+  deductDiamante();
   document.getElementById('moedaCount').textContent = fmt(moedas);
   document.getElementById('screenMemoria').classList.add('open');
   document.getElementById('memDiffPanel').style.display = 'flex';
@@ -3256,10 +3256,10 @@ let msAcertos  = 0;
 let msPrimeiro = true;
 
 function abrirMinado() {
-  if (moedas < 1) { toast('😢 Sem diamantes! Faça um pedido para ganhar.'); return; }
-  moedas--;
-  deductDiamante();
-  document.getElementById('moedaCount').textContent = fmt(moedas);
+  if (tickets < 1) { toast('😢 Sem tickets! Faça um pedido para ganhar.'); return; }
+  tickets--;
+  deductTicket();
+  document.getElementById('ticketCount').textContent = fmt(tickets);
   document.getElementById('screenMinado').classList.add('open');
   document.getElementById('msEndOverlay').classList.remove('show');
   try { document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); } catch(e){}

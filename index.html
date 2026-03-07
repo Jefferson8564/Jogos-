@@ -3,6 +3,34 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<style>
+  #rotateOverlay {
+    display: none;
+    position: fixed; inset: 0; z-index: 99999;
+    background: #0a1a08;
+    flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+  }
+  #rotateOverlay .rot-emoji { font-size: 64px; animation: rotAnim 1.5s ease-in-out infinite; }
+  #rotateOverlay .rot-txt { font-family: 'Fredoka One', cursive; font-size: 22px; color: #fff; text-align: center; padding: 0 32px; }
+  @keyframes rotAnim { 0%,100%{transform:rotate(-20deg)} 50%{transform:rotate(20deg)} }
+  @media screen and (orientation: landscape) {
+    #rotateOverlay { display: flex; }
+    /* Quando cobra está aberta, esconde o overlay global de landscape */
+    body.cobra-aberta #rotateOverlay { display: none; }
+  }
+  /* Overlay portrait dentro da cobra — só aparece em portrait */
+  #snakePortraitOverlay {
+    display: none;
+    position: absolute; inset: 0; z-index: 200;
+    background: #000e04;
+    flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+  }
+  #snakePortraitOverlay .rot-emoji { font-size: 64px; animation: rotAnim 1.5s ease-in-out infinite; }
+  #snakePortraitOverlay .rot-txt { font-family: 'Fredoka One', cursive; font-size: 22px; color: #4eff88; text-align: center; padding: 0 32px; line-height: 1.5; }
+  @media screen and (orientation: portrait) {
+    #snakePortraitOverlay { display: flex; }
+  }
+</style>
 <title>🎮 Jogos — O Rei da Coxinha</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -40,8 +68,8 @@ header {
 }
 .logo { font-family:'Fredoka One',cursive; font-size:20px; color:var(--orange2); text-shadow:0 0 20px rgba(255,107,0,0.5); line-height:1; }
 .logo small { display:block; font-family:'Nunito',sans-serif; font-size:10px; font-weight:700; letter-spacing:2px; color:var(--muted); text-transform:uppercase; margin-top:1px; }
-.btn-voltar { background:rgba(255,107,0,0.15); border:1px solid rgba(255,107,0,0.35); color:var(--orange2); padding:8px 14px; border-radius:20px; font-family:'Nunito',sans-serif; font-size:12px; font-weight:800; cursor:pointer; text-decoration:none; transition:background 0.2s; }
-.btn-voltar:hover{background:rgba(255,107,0,0.28);}
+.btn-voltar { background:#2e2e2e; border:none; color:#ff3b3b; width:38px; height:38px; border-radius:8px; font-size:20px; font-weight:900; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; line-height:1; }
+.btn-voltar:hover { background:#1a1a1a; }
 
 /* TICKET NO HEADER */
 .header-tickets { display:flex; align-items:center; gap:5px; }
@@ -110,15 +138,18 @@ header {
 .fs-topbar > * { pointer-events: all; }
 
 .fs-back-btn {
-  display: flex; align-items: center; gap: 6px;
-  background: rgba(0,0,0,0.55);
-  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255,255,255,0.15);
-  color: white; padding: 8px 14px; border-radius: 20px;
-  font-family: 'Nunito', sans-serif; font-size: 13px; font-weight: 800;
-  cursor: pointer; transition: background 0.2s;
+  display: flex; align-items: center; justify-content: center;
+  width: 38px; height: 38px;
+  background: #2e2e2e;
+  border: none;
+  border-radius: 8px;
+  color: #ff3b3b;
+  font-size: 20px; font-weight: 900;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
 }
-.fs-back-btn:active { background: rgba(0,0,0,0.8); }
+.fs-back-btn:active { background: #1a1a1a; }
 
 .fs-title {
   font-family: 'Fredoka One', cursive; font-size: 16px;
@@ -492,6 +523,107 @@ header {
 /* ===== CAMPO MINADO ===== */
 .game-card.minado { border-color:rgba(255,80,0,0.5); }
 .game-card.minado::after { content:''; position:absolute; top:-50%; left:-60%; width:40%; height:200%; background:linear-gradient(105deg,transparent,rgba(255,120,0,0.08),transparent); transform:skewX(-20deg); animation:shine 4s ease-in-out infinite; }
+.game-card.copo { border-color:rgba(255,165,0,0.5); }
+.game-card.copo::after { content:''; position:absolute; top:-50%; left:-60%; width:40%; height:200%; background:linear-gradient(105deg,transparent,rgba(255,165,0,0.08),transparent); transform:skewX(-20deg); animation:shine 3s ease-in-out infinite; }
+
+/* ── JOGO DO COPO ── */
+.copo-area {
+  flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:0; padding:20px 10px; position:relative;
+  background:radial-gradient(ellipse at 50% 30%, #1a0a00 0%, #0d0500 60%, #050200 100%);
+}
+.copo-cups-row {
+  display:flex; align-items:flex-end; justify-content:center;
+  gap:18px; margin-bottom:10px; position:relative;
+  height:180px;
+}
+.copo-cup-wrap {
+  display:flex; flex-direction:column; align-items:center;
+  position:relative; cursor:pointer;
+  transition:transform 0.15s;
+}
+.copo-cup-wrap:active { transform:scale(0.93); }
+.copo-coxinha {
+  width:44px; height:44px;
+  position:absolute;
+  bottom:2px; left:50%; transform:translateX(-50%);
+  opacity:0;
+  transition:opacity 0.3s;
+  image-rendering:pixelated;
+  filter:drop-shadow(0 2px 6px rgba(255,107,0,0.6));
+  pointer-events:none;
+  z-index:1;
+}
+.copo-cup {
+  width:80px; height:100px;
+  position:relative; z-index:2;
+  transition:transform 0.4s cubic-bezier(.4,0,.2,1);
+  filter:drop-shadow(0 6px 18px rgba(0,0,0,0.6));
+}
+.copo-cup svg { width:100%; height:100%; }
+.copo-label {
+  margin-top:6px; font-family:'Fredoka One',cursive; font-size:22px;
+  color:rgba(255,248,238,0.3); transition:color 0.3s;
+}
+.copo-cup-wrap.correto .copo-label { color:#4eff88; }
+.copo-cup-wrap.errado  .copo-label { color:#ff4444; }
+
+.copo-status {
+  font-family:'Fredoka One',cursive; font-size:20px;
+  color:var(--white); text-align:center; min-height:32px;
+  margin:8px 0 4px; text-shadow:0 2px 8px rgba(0,0,0,0.8);
+}
+.copo-btn-wrap {
+  display:flex; flex-direction:column; align-items:center; gap:10px;
+  width:100%; padding:0 24px;
+}
+.copo-btn {
+  width:100%; max-width:320px;
+  padding:14px 24px; border:none; border-radius:16px; cursor:pointer;
+  font-family:'Fredoka One',cursive; font-size:18px; letter-spacing:0.5px;
+  background:linear-gradient(135deg,#b35000,#ff7a00,#b35000);
+  color:white; box-shadow:0 4px 20px rgba(255,107,0,0.4);
+  animation:btnPulse 2s ease-in-out infinite;
+  transition:transform 0.1s;
+}
+.copo-btn:active { transform:scale(0.96); }
+.copo-info-row {
+  display:flex; align-items:center; gap:6px;
+  font-size:12px; font-weight:900; color:var(--muted);
+}
+.copo-info-row .ci-ticket { font-size:14px; }
+.copo-difficulty {
+  display:flex; gap:8px; margin-bottom:8px;
+}
+.copo-diff-btn {
+  padding:6px 16px; border-radius:20px; border:1px solid rgba(255,255,255,0.2);
+  background:rgba(255,255,255,0.06); color:var(--muted);
+  font-family:'Fredoka One',cursive; font-size:13px; cursor:pointer;
+  transition:all 0.2s;
+}
+.copo-diff-btn.ativo {
+  background:rgba(255,107,0,0.25); border-color:rgba(255,107,0,0.6);
+  color:var(--orange2);
+}
+.copo-result-overlay {
+  position:absolute; inset:0; z-index:50;
+  display:none; flex-direction:column; align-items:center; justify-content:center;
+  gap:14px;
+  background:rgba(0,0,0,0.82); backdrop-filter:blur(6px);
+  padding:24px;
+}
+.copo-result-overlay.show { display:flex; }
+.copo-result-emoji { font-size:72px; animation:popIn 0.4s cubic-bezier(.4,0,.2,1); }
+@keyframes popIn { from{transform:scale(0.2);opacity:0} to{transform:scale(1);opacity:1} }
+.copo-result-title { font-family:'Fredoka One',cursive; font-size:30px; color:white; text-align:center; }
+.copo-result-sub { font-size:14px; font-weight:700; color:var(--muted); text-align:center; }
+.copo-result-btns { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+.copo-result-btn {
+  padding:12px 24px; border-radius:14px; border:none; cursor:pointer;
+  font-family:'Fredoka One',cursive; font-size:16px;
+}
+.copo-result-btn.primary { background:linear-gradient(135deg,#b35000,#ff7a00); color:white; }
+.copo-result-btn.secondary { background:rgba(255,255,255,0.1); color:var(--muted); }
 
 /* Tabuleiro minado */
 .ms-wrap {
@@ -577,17 +709,113 @@ header {
 /* overlay fim de jogo minado */
 #msEndOverlay {
   display:none; position:absolute; inset:0; z-index:80;
-  background:rgba(0,0,0,0.88); backdrop-filter:blur(14px);
-  flex-direction:column; align-items:center; justify-content:center; gap:16px; padding:24px;
+  background:transparent;
+  flex-direction:column; align-items:center; justify-content:center; gap:0; padding:24px;
+  overflow:hidden;
 }
-#msEndOverlay.show { display:flex; animation:fadeIn 0.3s ease; }
-.ms-end-emoji { font-size:68px; animation:emojiBounce 0.7s ease both; }
-.ms-end-title { font-family:'Fredoka One',cursive; font-size:28px; color:var(--white); text-align:center; }
-.ms-end-msg   { font-size:13px; font-weight:700; color:var(--muted); text-align:center; line-height:1.7; }
-.ms-restart-btn { background:linear-gradient(135deg,#ff6b00,#ffaa44,#ff6b00); background-size:200% 100%; border:none; border-radius:20px; padding:15px 48px; font-family:'Fredoka One',cursive; font-size:20px; color:white; cursor:pointer; box-shadow:0 6px 28px rgba(255,107,0,0.5); -webkit-tap-highlight-color:transparent; margin-top:4px; }
+#msEndOverlay.show { display:flex; }
+
+/* Flash de explosão */
+#msFlash {
+  position:absolute; inset:0; z-index:1;
+  background:radial-gradient(circle at center, #ff6600, #ff2200, #880000, transparent);
+  opacity:0; pointer-events:none;
+  animation:msFlashAnim 0.6s ease-out both;
+}
+@keyframes msFlashAnim {
+  0%   { opacity:0; transform:scale(0.3); }
+  15%  { opacity:1; transform:scale(1.2); }
+  40%  { opacity:0.7; }
+  100% { opacity:0; transform:scale(2); }
+}
+
+/* Partículas de fogo */
+.ms-spark {
+  position:absolute; z-index:2; width:10px; height:10px;
+  border-radius:50%; pointer-events:none;
+  animation:msSpark var(--dur,0.9s) ease-out both;
+  transform-origin:center;
+}
+@keyframes msSpark {
+  0%   { transform:translate(0,0) scale(1); opacity:1; }
+  100% { transform:translate(var(--tx),var(--ty)) scale(0); opacity:0; }
+}
+
+/* Tela de explosão (derrota) */
+#msBlastScreen {
+  position:relative; z-index:10;
+  display:flex; flex-direction:column; align-items:center; gap:10px;
+  animation:msBlastIn 0.5s cubic-bezier(.36,.07,.19,.97) 0.25s both;
+}
+@keyframes msBlastIn {
+  0%   { transform:scale(2) rotate(-8deg); opacity:0; filter:blur(8px); }
+  60%  { transform:scale(0.92) rotate(2deg); opacity:1; filter:blur(0); }
+  100% { transform:scale(1) rotate(0); }
+}
+.ms-blast-emoji {
+  font-size:100px;
+  filter:drop-shadow(0 0 30px rgba(255,80,0,0.9));
+  animation:msBombPulse 0.4s ease 0.25s both;
+}
+@keyframes msBombPulse {
+  0%  { transform:scale(0); }
+  50% { transform:scale(1.3); }
+  75% { transform:scale(0.9); }
+  100%{ transform:scale(1); }
+}
+.ms-blast-title {
+  font-family:'Fredoka One',cursive; font-size:38px; color:#ff3333;
+  text-align:center; line-height:1;
+  text-shadow:0 0 30px rgba(255,50,0,0.8), 0 0 60px rgba(255,50,0,0.4);
+  animation:msGlowPulse 0.8s ease-in-out 0.4s infinite alternate;
+}
+@keyframes msGlowPulse {
+  from { text-shadow:0 0 20px rgba(255,50,0,0.7); }
+  to   { text-shadow:0 0 40px rgba(255,150,0,1), 0 0 80px rgba(255,80,0,0.6); }
+}
+.ms-blast-sub {
+  font-size:13px; font-weight:800; color:rgba(255,200,180,0.8);
+  text-align:center; line-height:1.7;
+  animation:fadeIn 0.4s ease 0.6s both;
+}
+
+/* Fundo escurecendo com chamas */
+#msBlastBg {
+  position:absolute; inset:0; z-index:0;
+  background:radial-gradient(ellipse at center, rgba(80,10,0,0.95) 0%, rgba(10,0,0,0.98) 70%);
+  animation:fadeIn 0.3s ease both;
+}
+
+/* Tela de prêmio (vitória mesmo explodindo) */
+#msPrizeScreen { display:none; flex-direction:column; align-items:center; gap:16px; animation:fadeIn 0.5s ease both; }
+.ms-prize-emoji { font-size:72px; animation:emojiBounce 0.7s ease both; }
+.ms-prize-title { font-family:'Fredoka One',cursive; font-size:26px; color:#4ade80; text-align:center; }
+.ms-prize-badge {
+  background:linear-gradient(135deg,rgba(74,222,128,0.15),rgba(74,222,128,0.05));
+  border:1.5px solid rgba(74,222,128,0.4);
+  border-radius:16px; padding:14px 24px; text-align:center;
+}
+.ms-prize-nome  { font-family:'Fredoka One',cursive; font-size:28px; color:#4ade80; }
+.ms-prize-acertos { font-size:12px; font-weight:700; color:rgba(255,255,255,0.35); margin-top:4px; }
+.ms-sacar-btn {
+  background:linear-gradient(135deg,#1a6b1a,#2ecc2e,#1a6b1a); background-size:200% 100%;
+  border:none; border-radius:20px; padding:16px 48px;
+  font-family:'Fredoka One',cursive; font-size:22px; color:white;
+  cursor:pointer; box-shadow:0 6px 28px rgba(46,180,46,0.5);
+  animation:btnPulse 2.5s ease-in-out infinite; -webkit-tap-highlight-color:transparent;
+}
+.ms-restart-btn { background:linear-gradient(135deg,#333,#555,#333); background-size:200% 100%; border:none; border-radius:20px; padding:12px 36px; font-family:'Fredoka One',cursive; font-size:16px; color:rgba(255,255,255,0.6); cursor:pointer; -webkit-tap-highlight-color:transparent; margin-top:4px; }
 </style>
 </head>
 <body>
+<div id="rotateOverlay">
+  <div class="rot-emoji">📱</div>
+  <div class="rot-txt">Gire o celular para<br>continuar jogando!</div>
+  <button ontouchstart="event.preventDefault();forcarPortrait()" onclick="forcarPortrait()"
+          style="background:linear-gradient(135deg,#ff6b00,#ffaa44,#ff6b00);border:none;border-radius:20px;padding:13px 32px;font-family:'Fredoka One',cursive;font-size:18px;color:white;cursor:pointer;box-shadow:0 4px 20px rgba(255,107,0,0.5);">
+    🔄 Girar Tela
+  </button>
+</div>
 
 <div class="bg-layer">
   <div class="blob b1"></div>
@@ -677,6 +905,15 @@ header {
         <div style="margin-top:8px;display:inline-flex;align-items:center;gap:4px;background:rgba(224,200,74,0.12);border:1px solid rgba(224,200,74,0.3);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:900;color:#e0c84a;">💎 1 moeda</div>
       </div>
 
+      <div class="game-card copo" onclick="abrirCopo()">
+        <span class="game-card-badge badge-novo">NOVO</span>
+        <span class="game-card-emoji">🥤</span>
+        <div class="game-card-name">Jogo do Copo</div>
+        <div class="game-card-desc">Siga a coxinha e adivinhe qual copo ela está!</div>
+        <div style="margin-top:8px;display:inline-flex;align-items:center;gap:4px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.3);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:900;color:#38bdf8;">💎 35 diamantes</div>
+        <div style="margin-top:5px;display:inline-flex;align-items:center;gap:4px;background:rgba(255,215,0,0.12);border:1px solid rgba(255,215,0,0.3);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:900;color:var(--yellow);">🏆 Prêmio: 1 ticket</div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -686,7 +923,7 @@ header {
 
   <!-- Topo flutuante -->
   <div class="fs-topbar">
-    <button class="fs-back-btn" onclick="voltarLobby()">← Sair</button>
+    <button class="fs-back-btn" onclick="voltarLobby()">&lt;</button>
     <span class="fs-title">🎡 Roleta de Prêmios</span>
     <div class="fs-tickets">
       <span class="fs-tickets-icon">🎟️</span>
@@ -713,13 +950,18 @@ header {
         <div class="wheel-hub" id="wheelHub" onclick="girar(); somClique();">🎯</div>
       </div>
 
-      <div class="fs-premios-row" id="premiosList"></div>
+      <div id="premiosList"></div>
 
     </div>
   </div>
 
   <!-- Controles base flutuantes -->
   <div class="fs-controls">
+    <div style="display:flex;align-items:center;gap:12px;font-size:12px;font-weight:800;margin-bottom:8px;justify-content:center;">
+      <span style="color:rgba(255,255,255,0.45);">Custo: <span style="color:#FFD700;">🎟️ 1 ticket</span></span>
+      <span style="color:rgba(255,255,255,0.2);">|</span>
+      <span style="color:rgba(255,255,255,0.45);">Seus tickets: <span style="color:#FFD700;" id="roletaTicketCount">0</span></span>
+    </div>
     <button class="spin-btn" id="spinBtn" onclick="girar()">🎡 JOGAR!</button>
     <div class="no-tickets-msg fs-no-tickets" id="noTicketsMsg">😢 Sem tickets — faça um pedido para ganhar!</div>
   </div>
@@ -731,7 +973,7 @@ header {
 
   <!-- Topo flutuante -->
   <div class="fs-topbar">
-    <button class="fs-back-btn" onclick="voltarLobbyFoguete()">← Sair</button>
+    <button class="fs-back-btn" onclick="voltarLobbyFoguete()">&lt;</button>
     <span class="fs-title">🚀 Foguete</span>
     <div class="fs-tickets">
       <span class="fs-tickets-icon">🎟️</span>
@@ -743,7 +985,7 @@ header {
   <div class="fs-game-area" id="fogueteArena">
     <canvas id="fogueteCanvas" style="position:absolute;inset:0;width:100%;height:100%;display:block;"></canvas>
     <div class="fs-mult-display" id="multDisplay">1.00x</div>
-    <div class="fs-arena-status" id="arenaStatus">Clique JOGAR para começar!</div>
+    <div id="arenaStatus" style="display:none;"></div>
 
     <!-- Resultado flutuante centralizado -->
     <div class="fs-resultado" id="fogueteResultado" style="display:none;">
@@ -754,8 +996,13 @@ header {
 
   <!-- Controles base flutuantes -->
   <div class="fs-controls">
+    <div style="display:flex;align-items:center;gap:12px;font-size:12px;font-weight:800;margin-bottom:8px;justify-content:center;">
+      <span style="color:rgba(255,255,255,0.45);">Custo: <span style="color:#FFD700;">🎟️ 1 ticket</span></span>
+      <span style="color:rgba(255,255,255,0.2);">|</span>
+      <span style="color:rgba(255,255,255,0.45);">Seus tickets: <span style="color:#FFD700;" id="fogueteTicketCount">0</span></span>
+    </div>
     <button class="jogar-foguete-btn" id="jogarFogueteBtn" onclick="jogarFoguete()">🚀 JOGAR!</button>
-    <button class="ejetar-btn aguardando" id="ejetarBtn" onclick="pararMult()" style="display:none;">🛑 PARAR</button>
+    <button class="ejetar-btn aguardando" id="ejetarBtn" onclick="pararMult()" style="display:none;">💰 SACAR 1% OFF</button>
     <div class="no-tickets-msg fs-no-tickets" id="noTicketsFogueteMsg">😢 Sem tickets — faça um pedido para ganhar!</div>
   </div>
 
@@ -765,7 +1012,7 @@ header {
 <div id="screenMemoria" class="game-fullscreen">
 
   <div class="fs-topbar">
-    <button class="fs-back-btn" onclick="voltarLobbyMemoria()">← Sair</button>
+    <button class="fs-back-btn" onclick="voltarLobbyMemoria()">&lt;</button>
     <span class="fs-title">🃏 Jogo da Memória</span>
     <div class="mem-stats">
       <div class="mem-stat"><span class="mem-stat-label">Tempo</span><span class="mem-stat-val" id="memTimer">0:00</span></div>
@@ -776,6 +1023,8 @@ header {
 
   <!-- Seletor de dificuldade -->
   <div id="memDiffPanel" style="position:absolute;inset:0;z-index:70;background:rgba(0,0,0,0.92);backdrop-filter:blur(14px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:24px;">
+    <!-- Botão voltar fixo no canto superior esquerdo -->
+    <button onclick="voltarLobbyMemoria()" style="position:absolute;top:14px;left:14px;background:#2e2e2e;border:none;border-radius:8px;width:38px;height:38px;font-size:20px;font-weight:900;color:#ff3b3b;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;">&lt;</button>
     <div style="font-size:64px;animation:emojiBounce 1s ease infinite;">🃏</div>
     <div style="font-family:'Fredoka One',cursive;font-size:28px;color:var(--white);text-align:center;text-shadow:0 0 20px rgba(255,215,0,0.3);">Jogo da Memória</div>
     <div style="font-size:13px;font-weight:700;color:var(--muted);text-align:center;line-height:1.7;">Vire as cartas e encontre todos os pares!<br>Quanto menos erros, melhor!</div>
@@ -784,6 +1033,11 @@ header {
       <button class="mem-diff-btn active" onclick="selecionarDiff(this,'facil')" data-diff="facil">😊<br>Fácil<br><span style="font-size:10px;opacity:0.7;">3×4 (6 pares)</span></button>
       <button class="mem-diff-btn" onclick="selecionarDiff(this,'medio')" data-diff="medio">😤<br>Médio<br><span style="font-size:10px;opacity:0.7;">4×5 (10 pares)</span></button>
       <button class="mem-diff-btn" onclick="selecionarDiff(this,'dificil')" data-diff="dificil">🔥<br>Difícil<br><span style="font-size:10px;opacity:0.7;">6×6 (18 pares)</span></button>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;font-size:12px;font-weight:800;">
+      <span style="color:rgba(255,255,255,0.45);">Custo: <span style="color:#38bdf8;">💎 1 diamante</span></span>
+      <span style="color:rgba(255,255,255,0.2);">|</span>
+      <span style="color:rgba(255,255,255,0.45);">Seus diamantes: <span style="color:#38bdf8;" id="memDiamCount">0</span></span>
     </div>
     <button onclick="iniciarMemoria()" style="background:linear-gradient(135deg,#ff6b00,#ffaa44,#ff6b00);background-size:200% 100%;border:none;border-radius:20px;padding:16px 52px;font-family:'Fredoka One',cursive;font-size:22px;color:white;cursor:pointer;box-shadow:0 6px 28px rgba(255,107,0,0.5);animation:btnPulse 2.5s ease-in-out infinite;-webkit-tap-highlight-color:transparent;">🃏 JOGAR!</button>
   </div>
@@ -807,80 +1061,78 @@ header {
 </div>
 
 <!-- ===== COBRA FULLSCREEN ===== -->
-<!-- Container que cobre a tela toda e aplica rotação CSS -->
 <div id="screenCobra" style="display:none; position:fixed; inset:0; z-index:600; background:#000; overflow:hidden; touch-action:none;">
+
+  <!-- Overlay: pede para girar em portrait -->
+  <div id="snakePortraitOverlay">
+    <div class="rot-emoji">📱</div>
+    <div class="rot-txt">Gire o celular<br>para jogar a cobrinha! 🐍</div>
+    <button ontouchstart="event.preventDefault();forcarLandscape()" onclick="forcarLandscape()"
+            style="background:linear-gradient(135deg,#00a832,#4eff88,#00a832);border:none;border-radius:20px;padding:13px 32px;font-family:'Fredoka One',cursive;font-size:18px;color:#001a05;cursor:pointer;box-shadow:0 4px 20px rgba(0,200,60,0.5);">
+      🔄 Girar Tela
+    </button>
+    <button ontouchstart="event.preventDefault();voltarLobbyCobra()" onclick="voltarLobbyCobra()"
+            style="background:#2e2e2e;border:none;border-radius:8px;width:38px;height:38px;font-size:20px;font-weight:900;color:#ff3b3b;cursor:pointer;display:flex;align-items:center;justify-content:center;">
+      &lt;
+    </button>
+  </div>
 
   <!-- Canvas: jogo ocupa tudo -->
   <canvas id="snakeCanvas" style="display:block;position:absolute;top:0;left:0;touch-action:none;"></canvas>
 
-  <!-- Botão SAIR: canto superior direito -->
+  <!-- Botão SAIR: canto superior esquerdo (landscape) -->
   <button ontouchstart="event.preventDefault();voltarLobbyCobra()" onclick="voltarLobbyCobra()"
-          style="position:absolute;top:14px;right:14px;z-index:60;
-                 background:rgba(0,0,0,0.6);backdrop-filter:blur(10px);
-                 border:1px solid rgba(255,255,255,0.2);color:#fff;
-                 padding:8px 14px;border-radius:20px;
-                 font-family:'Nunito',sans-serif;font-size:12px;font-weight:800;
-                 cursor:pointer;-webkit-tap-highlight-color:transparent;">
-    Sair ✕
+          style="position:absolute;top:14px;left:14px;z-index:100;
+                 background:#2e2e2e;border:none;border-radius:8px;
+                 width:38px;height:38px;font-size:20px;font-weight:900;
+                 color:#ff3b3b;cursor:pointer;display:flex;align-items:center;justify-content:center;
+                 -webkit-tap-highlight-color:transparent;">
+    &lt;
   </button>
 
-  <!-- Botão PAUSE: canto inferior direito -->
+  <!-- Botão PAUSE: canto superior direito (landscape) -->
   <button ontouchstart="event.preventDefault();pausarCobra()" onclick="pausarCobra()"
           id="snakePauseBtn"
-          style="position:absolute;bottom:14px;right:14px;z-index:60;
-                 background:rgba(0,0,0,0.6);backdrop-filter:blur(10px);
-                 border:1px solid rgba(255,255,255,0.2);color:#fff;
-                 width:48px;height:48px;border-radius:50%;
-                 font-size:18px;font-weight:800;cursor:pointer;
+          style="position:absolute;top:14px;right:14px;z-index:60;
+                 background:transparent;border:none;
+                 width:40px;height:40px;
+                 font-size:22px;cursor:pointer;
                  display:flex;align-items:center;justify-content:center;
                  -webkit-tap-highlight-color:transparent;">
     ⏸
   </button>
 
-  <!-- Pontuação: Parte de BAIXO à DIREITA (GIRADA 90° à direita) -->
-  <div style="position:absolute;bottom:50%;right:0;z-index:60;pointer-events:none;transform:translateY(50%);margin-right:-80px;">
-    <div style="display:flex;flex-direction:column;gap:12px;pointer-events:all;text-align:center;transform:rotate(90deg);transform-origin:center;white-space:nowrap;">
-      <div style="display:flex;flex-direction:column;align-items:center;">
-        <div style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.4);letter-spacing:1.5px;text-transform:uppercase;">Pontos</div>
-        <div id="snakeScore" style="font-family:'Fredoka One',cursive;font-size:28px;color:#4eff88;line-height:1;text-shadow:0 0 12px rgba(0,255,100,0.6);">0</div>
-      </div>
-      <div style="display:flex;flex-direction:column;align-items:center;">
-        <div style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.3);letter-spacing:1.5px;text-transform:uppercase;">Recorde</div>
-        <div id="snakeBest" style="font-family:'Fredoka One',cursive;font-size:24px;color:rgba(255,215,0,0.9);line-height:1;">0</div>
-      </div>
+  <!-- Pontuação: canto superior centro -->
+  <div style="position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:60;pointer-events:none;display:flex;gap:24px;align-items:center;">
+    <div style="display:flex;flex-direction:column;align-items:center;">
+      <div style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.4);letter-spacing:1.5px;text-transform:uppercase;">Pontos</div>
+      <div id="snakeScore" style="font-family:'Fredoka One',cursive;font-size:28px;color:#4eff88;line-height:1;text-shadow:0 0 12px rgba(0,255,100,0.6);">0</div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;">
+      <div style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.3);letter-spacing:1.5px;text-transform:uppercase;">Recorde</div>
+      <div id="snakeBest" style="font-family:'Fredoka One',cursive;font-size:24px;color:rgba(255,215,0,0.9);line-height:1;">0</div>
     </div>
   </div>
 
-  <!--
-    D-pad: canto INFERIOR ESQUERDO (celular deitado landscape).
-    A área de toque total é 210x210px — o JS detecta qual zona
-    foi tocada, mesmo que o dedo caia fora do botão visual.
-  -->
+  <!-- D-pad: canto inferior direito (landscape) — em cima da zona da morte -->
   <div id="snakeDpad"
-       style="position:absolute;bottom:14px;left:14px;z-index:60;
-              width:210px;height:210px;
+       style="position:absolute;bottom:0px;right:0px;z-index:60;
+              width:195px;height:195px;
               user-select:none;-webkit-user-select:none;touch-action:none;">
 
-    <!-- Área de toque invisible que cobre tudo e roteia para o botão certo -->
     <div id="snakeDpadArea"
-         style="position:absolute;inset:0;z-index:10;border-radius:24px;
+         style="position:absolute;inset:0;z-index:10;border-radius:30px;
                 background:rgba(0,0,0,0.0);"
          ontouchstart="dpadTouch(event)"
          ontouchmove="dpadTouch(event)"
          ontouchend="event.preventDefault();dpadLastDir=null"></div>
 
-    <!-- Botões visuais — cada um ocupa 1/3 da grade 3x3 centrado em cruz -->
-    <!-- CIMA  -->
     <div id="sbUp"   class="dpad-vis" style="top:0;   left:50%;transform:translateX(-50%);border-radius:18px 18px 8px 8px;">▲</div>
-    <!-- ESQ   -->
     <div id="sbLeft" class="dpad-vis" style="top:50%;left:0;  transform:translateY(-50%);border-radius:18px 8px 8px 18px;">◀</div>
-    <!-- DIR   -->
     <div id="sbRight"class="dpad-vis" style="top:50%;right:0; transform:translateY(-50%);border-radius:8px 18px 18px 8px;">▶</div>
-    <!-- BAIXO -->
     <div id="sbDown" class="dpad-vis" style="bottom:0;left:50%;transform:translateX(-50%);border-radius:8px 8px 18px 18px;">▼</div>
 
-    <!-- Centro -->
-    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(90deg);
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
                 width:52px;height:52px;border-radius:50%;
                 background:radial-gradient(circle at 40% 35%,#0f2a10,#050d05);
                 border:2px solid rgba(0,220,80,0.25);
@@ -890,10 +1142,15 @@ header {
 
   <!-- Overlay inicio / game over / pause -->
   <div id="snakeOverlay" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:50;background:rgba(0,0,0,0.85);backdrop-filter:blur(12px);">
-    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;transform:rotate(90deg);white-space:nowrap;">
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;white-space:nowrap;">
       <div style="font-size:64px;filter:drop-shadow(0 4px 12px rgba(0,255,80,0.3));">🐍</div>
       <div id="snakeOverlayTitle" style="font-family:'Fredoka One',cursive;font-size:26px;color:#fff;text-shadow:0 2px 10px rgba(0,255,80,0.3);">Jogo da Cobra</div>
       <div id="snakeOverlayMsg" style="font-size:13px;font-weight:700;color:rgba(255,255,255,0.5);text-align:center;padding:0 28px;line-height:1.8;">Use o D-pad para controlar a cobra!</div>
+      <div style="display:flex;align-items:center;gap:12px;font-size:12px;font-weight:800;margin-bottom:2px;">
+        <span style="color:rgba(255,255,255,0.45);">Custo: <span style="color:#38bdf8;">💎 1 diamante</span></span>
+        <span style="color:rgba(255,255,255,0.2);">|</span>
+        <span style="color:rgba(255,255,255,0.45);">Seus diamantes: <span style="color:#38bdf8;" id="cobradiamCount">0</span></span>
+      </div>
       <button id="snakeStartBtn" onclick="iniciarCobra()" style="background:linear-gradient(135deg,#00a832,#4eff88,#00a832);background-size:200% 100%;border:none;border-radius:20px;padding:15px 48px;font-family:'Fredoka One',cursive;font-size:22px;color:#001a05;cursor:pointer;box-shadow:0 6px 28px rgba(0,200,60,0.55);-webkit-tap-highlight-color:transparent;">🐍 JOGAR!</button>
     </div>
   </div>
@@ -905,7 +1162,7 @@ header {
 
   <!-- Topo -->
   <div class="fs-topbar">
-    <button class="fs-back-btn" ontouchstart="event.preventDefault();voltarLobbyEntregador()" onclick="voltarLobbyEntregador()">← Sair</button>
+    <button class="fs-back-btn" ontouchstart="event.preventDefault();voltarLobbyEntregador()" onclick="voltarLobbyEntregador()">&lt;</button>
     <span class="fs-title">🛵 Entregador</span>
     <div class="mem-stats">
       <div class="mem-stat"><span class="mem-stat-label">Pontos</span><span class="mem-stat-val" id="entScore">0</span></div>
@@ -918,26 +1175,170 @@ header {
 
   <!-- Overlay início / game over -->
   <div id="entOverlay" style="position:absolute;inset:0;z-index:50;background:rgba(0,0,0,0.88);backdrop-filter:blur(12px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;">
+    <!-- Botão voltar fixo no canto superior esquerdo -->
+    <button ontouchstart="event.preventDefault();voltarLobbyEntregador()" onclick="voltarLobbyEntregador()" style="position:absolute;top:14px;left:14px;background:#2e2e2e;border:none;border-radius:8px;width:38px;height:38px;font-size:20px;font-weight:900;color:#ff3b3b;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;">&lt;</button>
     <div style="font-size:68px;animation:emojiBounce 1s ease-in-out infinite;">🛵</div>
     <div id="entOverlayTitle" style="font-family:'Fredoka One',cursive;font-size:28px;color:#fff;text-align:center;">Entregador</div>
     <div id="entOverlayMsg" style="font-size:13px;font-weight:700;color:rgba(255,255,255,0.55);text-align:center;line-height:1.8;">Toque na esquerda ou direita para mudar de faixa!<br>Desvie dos carros e sobreviva o máximo!</div>
+    <div style="display:flex;align-items:center;gap:12px;font-size:12px;font-weight:800;">
+      <span style="color:rgba(255,255,255,0.45);">Custo: <span style="color:#38bdf8;">💎 1 diamante</span></span>
+      <span style="color:rgba(255,255,255,0.2);">|</span>
+      <span style="color:rgba(255,255,255,0.45);">Seus diamantes: <span style="color:#38bdf8;" id="entDiamCount">0</span></span>
+    </div>
     <button id="entStartBtn" ontouchstart="event.preventDefault();iniciarEntregador()" onclick="iniciarEntregador()" style="background:linear-gradient(135deg,#e03030,#ff6060,#e03030);background-size:200% 100%;border:none;border-radius:20px;padding:15px 52px;font-family:'Fredoka One',cursive;font-size:22px;color:white;cursor:pointer;box-shadow:0 6px 28px rgba(220,50,50,0.5);animation:btnPulse 2.5s ease-in-out infinite;-webkit-tap-highlight-color:transparent;">🛵 ENTREGAR!</button>
   </div>
 
 </div>
 
-<!-- ===== CAMPO MINADO FULLSCREEN ===== -->
+<!-- ===== JOGO DO COPO FULLSCREEN ===== -->
+<div id="screenCopo" class="game-fullscreen" style="background:radial-gradient(ellipse at 50% 20%, #1a0a00 0%, #0d0500 60%, #050200 100%);">
+
+  <!-- Topo -->
+  <div class="fs-topbar">
+    <button class="fs-back-btn" ontouchstart="event.preventDefault();voltarLobbyCopo()" onclick="voltarLobbyCopo()">&lt;</button>
+    <span class="fs-title">🥤 Jogo do Copo</span>
+    <div class="fs-tickets">
+      <span class="fs-tickets-icon">💎</span>
+      <span class="fs-tickets-num" id="copoTicketCount" style="color:#38bdf8;">0</span>
+    </div>
+  </div>
+
+  <!-- Área do jogo -->
+  <div class="copo-area">
+
+    <!-- Dificuldade -->
+    <div class="copo-difficulty" id="copoDifficulty">
+      <button class="copo-diff-btn ativo" id="diffFacil" onclick="copoSetDiff('facil')">Fácil</button>
+      <button class="copo-diff-btn" id="diffMedio" onclick="copoSetDiff('medio')">Médio</button>
+      <button class="copo-diff-btn" id="diffDificil" onclick="copoSetDiff('dificil')">Difícil</button>
+    </div>
+
+    <!-- Fileira de copos -->
+    <div class="copo-cups-row" id="copoCupsRow">
+
+      <div class="copo-cup-wrap" id="copoWrap0" onclick="copoClicar(0)">
+        <img class="copo-coxinha" id="copoCoxinha0" src="data:image/png;base64,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" alt="coxinha">
+        <div class="copo-cup" id="copoCup0">
+          <svg viewBox="0 0 80 100" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="cupG0" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" style="stop-color:#c0392b"/>
+                <stop offset="40%" style="stop-color:#e74c3c"/>
+                <stop offset="100%" style="stop-color:#922b21"/>
+              </linearGradient>
+              <linearGradient id="cupShine0" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" style="stop-color:rgba(255,255,255,0.25)"/>
+                <stop offset="100%" style="stop-color:rgba(255,255,255,0)"/>
+              </linearGradient>
+            </defs>
+            <!-- corpo -->
+            <path d="M8,8 L4,92 Q4,96 8,96 L72,96 Q76,96 76,92 L72,8 Z" fill="url(#cupG0)"/>
+            <!-- borda topo -->
+            <rect x="6" y="6" width="68" height="8" rx="4" fill="#922b21"/>
+            <!-- borda base -->
+            <rect x="2" y="90" width="76" height="8" rx="4" fill="#7b241c"/>
+            <!-- brilho -->
+            <path d="M14,8 L11,90 L22,90 L24,8 Z" fill="url(#cupShine0)" opacity="0.5"/>
+            <!-- logo coxinha mini -->
+            <text x="40" y="60" text-anchor="middle" font-size="22" fill="rgba(255,255,255,0.18)">🥤</text>
+          </svg>
+        </div>
+        <div class="copo-label" id="copoLabel0" style="display:none"></div>
+      </div>
+
+      <div class="copo-cup-wrap" id="copoWrap1" onclick="copoClicar(1)">
+        <img class="copo-coxinha" id="copoCoxinha1" src="data:image/png;base64,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" alt="coxinha">
+        <div class="copo-cup" id="copoCup1">
+          <svg viewBox="0 0 80 100" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="cupG1" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" style="stop-color:#c0392b"/>
+                <stop offset="40%" style="stop-color:#e74c3c"/>
+                <stop offset="100%" style="stop-color:#922b21"/>
+              </linearGradient>
+              <linearGradient id="cupShine1" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" style="stop-color:rgba(255,255,255,0.25)"/>
+                <stop offset="100%" style="stop-color:rgba(255,255,255,0)"/>
+              </linearGradient>
+            </defs>
+            <path d="M8,8 L4,92 Q4,96 8,96 L72,96 Q76,96 76,92 L72,8 Z" fill="url(#cupG1)"/>
+            <rect x="6" y="6" width="68" height="8" rx="4" fill="#922b21"/>
+            <rect x="2" y="90" width="76" height="8" rx="4" fill="#7b241c"/>
+            <path d="M14,8 L11,90 L22,90 L24,8 Z" fill="url(#cupShine1)" opacity="0.5"/>
+            <text x="40" y="60" text-anchor="middle" font-size="22" fill="rgba(255,255,255,0.18)">🥤</text>
+          </svg>
+        </div>
+        <div class="copo-label" id="copoLabel1" style="display:none"></div>
+      </div>
+
+      <div class="copo-cup-wrap" id="copoWrap2" onclick="copoClicar(2)">
+        <img class="copo-coxinha" id="copoCoxinha2" src="data:image/png;base64,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" alt="coxinha">
+        <div class="copo-cup" id="copoCup2">
+          <svg viewBox="0 0 80 100" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="cupG2" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" style="stop-color:#c0392b"/>
+                <stop offset="40%" style="stop-color:#e74c3c"/>
+                <stop offset="100%" style="stop-color:#922b21"/>
+              </linearGradient>
+              <linearGradient id="cupShine2" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" style="stop-color:rgba(255,255,255,0.25)"/>
+                <stop offset="100%" style="stop-color:rgba(255,255,255,0)"/>
+              </linearGradient>
+            </defs>
+            <path d="M8,8 L4,92 Q4,96 8,96 L72,96 Q76,96 76,92 L72,8 Z" fill="url(#cupG2)"/>
+            <rect x="6" y="6" width="68" height="8" rx="4" fill="#922b21"/>
+            <rect x="2" y="90" width="76" height="8" rx="4" fill="#7b241c"/>
+            <path d="M14,8 L11,90 L22,90 L24,8 Z" fill="url(#cupShine2)" opacity="0.5"/>
+            <text x="40" y="60" text-anchor="middle" font-size="22" fill="rgba(255,255,255,0.18)">🥤</text>
+          </svg>
+        </div>
+        <div class="copo-label" id="copoLabel2" style="display:none"></div>
+      </div>
+
+    </div><!-- fim cups-row -->
+
+    <!-- Status text -->
+    <div class="copo-status" id="copoStatus">Pronto para jogar?</div>
+
+    <!-- Botão + info ticket -->
+    <div class="copo-btn-wrap" id="copoBtnWrap">
+      <button class="copo-btn" id="copoBtn" onclick="copoBtnAcao()">🎮 Jogar</button>
+      <div class="copo-info-row" id="copoJogarInfo">
+        <span class="ci-ticket">💎</span>
+        <span>Custa <strong style="color:#38bdf8;">35 diamantes</strong> • Prêmio: <strong style="color:var(--yellow);">🎟️ 1 ticket</strong></span>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-align:center;">Seus diamantes: <strong id="copoTicketInfo" style="color:#38bdf8;">0</strong></div>
+    </div>
+
+    <!-- Overlay resultado -->
+    <div class="copo-result-overlay" id="copoResultOverlay">
+      <div class="copo-result-emoji" id="copoResultEmoji">🎉</div>
+      <div class="copo-result-title" id="copoResultTitle">Acertou!</div>
+      <div class="copo-result-sub" id="copoResultSub"></div>
+      <div class="copo-result-btns">
+        <button class="copo-result-btn primary" onclick="copoJogarNovamente()">🔄 Jogar Novamente</button>
+        <button class="copo-result-btn secondary" onclick="voltarLobbyCopo()">← Voltar</button>
+      </div>
+    </div>
+
+  </div><!-- fim copo-area -->
+</div><!-- fim screenCopo -->
+
+
+
 <div id="screenMinado" class="game-fullscreen" style="background:radial-gradient(ellipse at 50% 20%, #081a08 0%, #040e04 60%, #020502 100%);">
 
   <!-- Topo -->
   <div class="fs-topbar">
-    <button class="fs-back-btn" ontouchstart="event.preventDefault();voltarLobbyMinado()" onclick="voltarLobbyMinado()">← Sair</button>
+    <button class="fs-back-btn" ontouchstart="event.preventDefault();voltarLobbyMinado()" onclick="voltarLobbyMinado()">&lt;</button>
     <span class="fs-title">💣 Campo Minado</span>
     <div class="mem-stats">
       <div class="mem-stat"><span class="mem-stat-label">Acertos</span><span class="mem-stat-val" id="msAcertos">0</span></div>
       <div class="mem-stat"><span class="mem-stat-label">💣</span><span class="mem-stat-val" id="msBombCount">5</span></div>
     </div>
   </div>
+
 
   <!-- Área central -->
   <div class="ms-wrap">
@@ -969,18 +1370,42 @@ header {
     <!-- Grade -->
     <div class="ms-grid" id="msGrid"></div>
 
-    <!-- Botão novo jogo -->
-    <div style="margin-top:16px;">
-      <button onclick="msIniciar()" style="background:linear-gradient(135deg,#1a6b1a,#2ecc2e,#1a6b1a);background-size:200% 100%;border:none;border-radius:20px;padding:13px 36px;font-family:'Fredoka One',cursive;font-size:18px;color:white;cursor:pointer;box-shadow:0 5px 20px rgba(46,180,46,0.4);-webkit-tap-highlight-color:transparent;">🔄 Novo Jogo</button>
+    <!-- Botão principal: Jogar / Sacar -->
+    <div id="msBtnWrap" style="margin-top:16px;display:none;flex-direction:column;align-items:center;gap:6px;">
+      <div id="msJogarInfo" style="display:flex;align-items:center;gap:12px;font-size:12px;font-weight:800;">
+        <span style="color:rgba(255,255,255,0.4);">Custo: <span style="color:var(--yellow);">🎟️ 1 ticket</span></span>
+        <span style="color:rgba(255,255,255,0.25);">|</span>
+        <span style="color:rgba(255,255,255,0.4);">Seus tickets: <span style="color:var(--yellow);" id="msTicketCount">0</span></span>
+      </div>
+      <button id="msBtnPrincipal" ontouchstart="event.preventDefault();msBtnAcao()" onclick="msBtnAcao()" style="background:linear-gradient(135deg,#1a6b1a,#2ecc2e,#1a6b1a);background-size:200% 100%;border:none;border-radius:20px;padding:15px 52px;font-family:'Fredoka One',cursive;font-size:20px;color:white;cursor:pointer;box-shadow:0 5px 20px rgba(46,180,46,0.4);-webkit-tap-highlight-color:transparent;animation:btnPulse 2s ease-in-out infinite;">🎮 Jogar</button>
     </div>
   </div>
 
   <!-- Overlay fim -->
   <div id="msEndOverlay">
-    <div class="ms-end-emoji" id="msEndEmoji">💥</div>
-    <div class="ms-end-title" id="msEndTitle">BOOM!</div>
-    <div class="ms-end-msg"   id="msEndMsg">Você pisou numa bomba!</div>
-    <button class="ms-restart-btn" onclick="msIniciar()">🔄 Jogar de Novo!</button>
+    <div id="msBlastBg"></div>
+    <div id="msFlash"></div>
+    <!-- canvas de partículas -->
+    <canvas id="msSparkCanvas" style="position:absolute;inset:0;z-index:3;pointer-events:none;"></canvas>
+
+    <!-- Tela explosão -->
+    <div id="msBlastScreen">
+      <div class="ms-blast-emoji">💥</div>
+      <div class="ms-blast-title">BOOM!</div>
+      <div class="ms-blast-sub" id="msBlastSub">Você não tinha nenhum prêmio.</div>
+    </div>
+
+    <!-- Tela prêmio (aparece após explosão quando tem prêmio) -->
+    <div id="msPrizeScreen">
+      <div class="ms-prize-emoji" id="msPrizeEmoji">🏷️</div>
+      <div class="ms-prize-title">Prêmio salvo!</div>
+      <div class="ms-prize-badge">
+        <div class="ms-prize-nome" id="msPrizeNome">5% OFF</div>
+        <div class="ms-prize-acertos" id="msPrizeAcertos">0 acertos</div>
+      </div>
+      <button class="ms-sacar-btn" id="msRestartBtn" onclick="msVoltarInicio()">💸 Sacar 5% off</button>
+    </div>
+
   </div>
 
 </div>
@@ -1013,7 +1438,25 @@ let tickets    = 0;
 let moedas     = 0; // diamantes
 
 // ── INIT ──────────────────────────────────────────────────────────────
-window.addEventListener('DOMContentLoaded', () => { initJogos(); });
+window.addEventListener('DOMContentLoaded', () => {
+  // Travar orientação em portrait
+  if (screen.orientation && screen.orientation.lock) {
+    screen.orientation.lock('portrait').catch(() => {});
+  }
+  initJogos();
+});
+
+function forcarLandscape() {
+  if (screen.orientation && screen.orientation.lock) {
+    screen.orientation.lock('landscape').catch(() => {});
+  }
+}
+
+function forcarPortrait() {
+  if (screen.orientation && screen.orientation.lock) {
+    screen.orientation.lock('portrait').catch(() => {});
+  }
+}
 
 async function initJogos() {
   userPhone = localStorage.getItem('salgados_phone');
@@ -1077,6 +1520,7 @@ async function initJogos() {
           id:  i + 1,
           cor: (p.cor || ['#ff3b3b','#2196f3','#00c853','#FFD700','#9c27b0','#607d8b','#e91e8c'][i % 7]),
         }));
+        buildPremiosList();
       }
 
       const fogueteData = get('foguete', 'faixas');
@@ -1109,8 +1553,14 @@ function atualizarTodaUI() {
   document.getElementById('moedaCount').textContent  = fmt(moedas);
   const fsR = document.getElementById('fsRoletaTickets');
   const fsF = document.getElementById('fsFogueteTickets');
+  const cdc = document.getElementById('cobradiamCount');
+  const mdc = document.getElementById('memDiamCount');
+  const edc = document.getElementById('entDiamCount');
   if (fsR) fsR.textContent = fmt(tickets);
   if (fsF) fsF.textContent = fmt(tickets);
+  if (cdc) cdc.textContent = fmt(moedas);
+  if (mdc) mdc.textContent = fmt(moedas);
+  if (edc) edc.textContent = fmt(moedas);
 }
 
 // Renderiza botões de faixas do foguete dinamicamente
@@ -1234,6 +1684,7 @@ function getSLICE() { return getN() > 0 ? (2 * Math.PI) / getN() : 0; }
 
 // ── NAVEGAÇÃO ─────────────────────────────────────────────────────────
 function abrirRoleta() {
+  pushHistoryJogo('roleta');
   if (tickets < 1) { toast('😢 Sem tickets! Faça um pedido para ganhar.'); return; }
   initCanvas();
   if (!canvas || !ctx) { toast('❌ Erro ao carregar roleta'); return; }
@@ -1299,25 +1750,29 @@ function drawWheel(angle) {
     ctx.translate(cx,cy);
     ctx.rotate(start + SLICE/2);
 
-    // emoji
-    ctx.font = `${sz*0.062}px serif`;
+    // emoji com sombra
+    ctx.shadowColor = 'rgba(0,0,0,0.85)';
+    ctx.shadowBlur  = 8;
+    ctx.font = `${sz*0.068}px serif`;
     ctx.textAlign   = 'center';
     ctx.textBaseline= 'middle';
     ctx.fillText(p.emoji, r*0.74, 0);
 
-    // nome
-    ctx.font = `bold ${sz*0.037}px Nunito,sans-serif`;
-    ctx.fillStyle   = 'rgba(255,255,255,0.95)';
-    ctx.shadowColor = 'rgba(0,0,0,0.75)';
-    ctx.shadowBlur  = 5;
+    // nome — Fredoka One com sombra forte
+    ctx.font = `${sz*0.042}px 'Fredoka One',cursive`;
+    ctx.fillStyle   = '#ffffff';
+    ctx.shadowColor = 'rgba(0,0,0,0.95)';
+    ctx.shadowBlur  = 7;
+    ctx.shadowOffsetX = 1;
+    ctx.shadowOffsetY = 1;
     const words = p.nome.split(' ');
     if(words.length<=2){
       ctx.fillText(p.nome, r*0.39, 0);
     } else {
-      ctx.fillText(words.slice(0,2).join(' '), r*0.39, -sz*0.022);
-      ctx.fillText(words.slice(2).join(' '),   r*0.39,  sz*0.022);
+      ctx.fillText(words.slice(0,2).join(' '), r*0.39, -sz*0.024);
+      ctx.fillText(words.slice(2).join(' '),   r*0.39,  sz*0.024);
     }
-    ctx.shadowBlur=0;
+    ctx.shadowBlur=0; ctx.shadowOffsetX=0; ctx.shadowOffsetY=0;
     ctx.restore();
   }
 
@@ -1459,6 +1914,10 @@ function atualizarTicketUI(){
   document.getElementById('ticketCount').textContent = fmt(tickets);
   const fsR = document.getElementById('fsRoletaTickets');
   if (fsR) fsR.textContent = fmt(tickets);
+  const rtc = document.getElementById('roletaTicketCount');
+  if (rtc) rtc.textContent = fmt(tickets);
+  const ftc = document.getElementById('fogueteTicketCount');
+  if (ftc) ftc.textContent = fmt(tickets);
   const btn=document.getElementById('spinBtn');
   const msg=document.getElementById('noTicketsMsg');
   btn.style.display = tickets>0 ? 'block' : 'none';
@@ -1467,12 +1926,35 @@ function atualizarTicketUI(){
 }
 
 function buildPremiosList(){
-  document.getElementById('premiosList').innerHTML = PREMIOS.map(p=>`
-    <div class="premio-chip">
-      <div class="p-dot" style="background:${p.cor}"></div>
-      <span>${p.emoji} ${p.nome}</span>
-    </div>
-  `).join('');
+  let maiorValor = 0;
+  PREMIOS.forEach(p => {
+    const mR = p.nome.match(/R\$\s*([\d]+(?:[,.][\d]+)?)/i);
+    const mP = p.nome.match(/(\d+(?:[,.]\d+)?)\s*no\s*Pix/i) || p.nome.match(/Pix[^\d]*([\d]+(?:[,.]\d+)?)/i);
+    const raw = mR ? mR[1] : (mP ? mP[1] : null);
+    if (raw) {
+      const v = parseFloat(raw.replace(',', '.'));
+      if (!isNaN(v) && v > maiorValor) maiorValor = v;
+    }
+    if (p.valor2 && (p.tipo === 'pix' || p.tipo === 'pessoal') && p.valor2 > maiorValor) {
+      maiorValor = p.valor2;
+    }
+  });
+  const el = document.getElementById('premiosList');
+  if (!el) return;
+  if (maiorValor > 0) {
+    const fmtVal = maiorValor.toFixed(2).replace('.', ',');
+    el.innerHTML = `
+      <div style="margin-top:10px;display:inline-flex;align-items:center;gap:8px;
+        background:rgba(0,200,80,0.14);border:1px solid rgba(0,200,80,0.4);
+        border-radius:30px;padding:9px 22px;">
+        <span style="font-size:20px;">💰</span>
+        <span style="font-family:'Fredoka One',cursive;font-size:15px;color:#4ade80;letter-spacing:0.5px;">
+          Ganhe até <strong style="font-size:19px;color:#86efac;">R$ ${fmtVal}</strong>
+        </span>
+      </div>`;
+  } else {
+    el.innerHTML = '';
+  }
 }
 buildPremiosList();
 
@@ -1482,6 +1964,30 @@ function toast(msg){
   document.body.appendChild(d);
   setTimeout(()=>d.remove(),2600);
 }
+
+// ============================================================
+// 📱 BOTÃO VOLTAR DO CELULAR (Android hardware/gesture back)
+// ============================================================
+const JOGOS_VOLTAR = {
+  roleta:      () => voltarLobby(),
+  foguete:     () => voltarLobbyFoguete(),
+  cobra:       () => voltarLobbyCobra(),
+  memoria:     () => voltarLobbyMemoria(),
+  entregador:  () => voltarLobbyEntregador(),
+  minado:      () => voltarLobbyMinado(),
+  copo:        () => voltarLobbyCopo(),
+};
+
+function pushHistoryJogo(jogo) {
+  history.pushState({ jogo }, '', '#' + jogo);
+}
+
+window.addEventListener('popstate', (e) => {
+  const jogo = e.state && e.state.jogo;
+  if (jogo && JOGOS_VOLTAR[jogo]) {
+    JOGOS_VOLTAR[jogo]();
+  }
+});
 
 // ============================================================
 // 🔊 SISTEMA DE SOM (Web Audio API — sem arquivos externos)
@@ -1587,6 +2093,109 @@ function somExplosao() {
   } catch(e){}
 }
 
+function somExplosaoMoto() {
+  try {
+    const ac = getAudio();
+    const now = ac.currentTime;
+
+    // ── COMPRESSOR MESTRE — deixa tudo no talo ──
+    const comp = ac.createDynamicsCompressor();
+    comp.threshold.value = -6;
+    comp.knee.value = 0;
+    comp.ratio.value = 20;
+    comp.attack.value = 0.001;
+    comp.release.value = 0.3;
+    comp.connect(ac.destination);
+
+    // ── CAMADA 1: BANG inicial — ruído branco curto e alto ──
+    const bangSize = Math.floor(ac.sampleRate * 0.08);
+    const bangBuf  = ac.createBuffer(1, bangSize, ac.sampleRate);
+    const bangData = bangBuf.getChannelData(0);
+    for (let i = 0; i < bangSize; i++) bangData[i] = (Math.random() * 2 - 1);
+    const bang = ac.createBufferSource();
+    bang.buffer = bangBuf;
+    const bangFilter = ac.createBiquadFilter();
+    bangFilter.type = 'bandpass';
+    bangFilter.frequency.value = 2000;
+    bangFilter.Q.value = 0.5;
+    const bangGain = ac.createGain();
+    bangGain.gain.setValueAtTime(1.5, now);
+    bangGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+    bang.connect(bangFilter);
+    bangFilter.connect(bangGain);
+    bangGain.connect(comp);
+    bang.start(now);
+    bang.stop(now + 0.08);
+
+    // ── CAMADA 2: RUÍDO LONGO — corpo da explosão ──
+    const noiseSize = Math.floor(ac.sampleRate * 2.0);
+    const noiseBuf  = ac.createBuffer(1, noiseSize, ac.sampleRate);
+    const noiseData = noiseBuf.getChannelData(0);
+    for (let i = 0; i < noiseSize; i++) noiseData[i] = (Math.random() * 2 - 1);
+    const noise = ac.createBufferSource();
+    noise.buffer = noiseBuf;
+    const noiseFilter = ac.createBiquadFilter();
+    noiseFilter.type = 'lowpass';
+    noiseFilter.frequency.setValueAtTime(600, now);
+    noiseFilter.frequency.exponentialRampToValueAtTime(80, now + 1.8);
+    const noiseGain = ac.createGain();
+    noiseGain.gain.setValueAtTime(1.2, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 1.8);
+    noise.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    noiseGain.connect(comp);
+    noise.start(now);
+    noise.stop(now + 1.8);
+
+    // ── CAMADA 3: SUB-BASS — impacto no peito ──
+    const sub = ac.createOscillator();
+    sub.type = 'sine';
+    sub.frequency.setValueAtTime(55, now);
+    sub.frequency.exponentialRampToValueAtTime(18, now + 0.7);
+    const subGain = ac.createGain();
+    subGain.gain.setValueAtTime(1.8, now);
+    subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
+    sub.connect(subGain);
+    subGain.connect(comp);
+    sub.start(now);
+    sub.stop(now + 0.7);
+
+    // ── CAMADA 4: MID BOOM — barulho de batida ──
+    const mid = ac.createOscillator();
+    mid.type = 'sawtooth';
+    mid.frequency.setValueAtTime(120, now);
+    mid.frequency.exponentialRampToValueAtTime(30, now + 0.5);
+    const midGain = ac.createGain();
+    midGain.gain.setValueAtTime(0.9, now);
+    midGain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+    mid.connect(midGain);
+    midGain.connect(comp);
+    mid.start(now);
+    mid.stop(now + 0.5);
+
+    // ── CAMADA 5: METAL RASPANDO — som de lataria ──
+    const metalSize = Math.floor(ac.sampleRate * 0.6);
+    const metalBuf  = ac.createBuffer(1, metalSize, ac.sampleRate);
+    const metalData = metalBuf.getChannelData(0);
+    for (let i = 0; i < metalSize; i++) metalData[i] = (Math.random() * 2 - 1);
+    const metal = ac.createBufferSource();
+    metal.buffer = metalBuf;
+    const metalFilter = ac.createBiquadFilter();
+    metalFilter.type = 'highpass';
+    metalFilter.frequency.value = 1800;
+    const metalGain = ac.createGain();
+    metalGain.gain.setValueAtTime(0.0, now);
+    metalGain.gain.linearRampToValueAtTime(0.6, now + 0.05);
+    metalGain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+    metal.connect(metalFilter);
+    metalFilter.connect(metalGain);
+    metalGain.connect(comp);
+    metal.start(now);
+    metal.stop(now + 0.6);
+
+  } catch(e) {}
+}
+
 function somEjetar() {
   try {
     const ac = getAudio();
@@ -1628,18 +2237,84 @@ function pararSomFoguete() {
   try { if (fogueteLoopNode) { fogueteLoopNode.stop(); fogueteLoopNode = null; } } catch(e){}
 }
 
+// 🛵 SOM DE MOTOR DE MOTO
+let motoEngineNodes = null;
+
+function iniciarSomMoto() {
+  pararSomMoto();
+  try {
+    const ac = getAudio();
+
+    // Oscilador principal — nota do motor
+    const osc = ac.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.value = 110;
+
+    // LFO rápido — cria o "bla bla bla" do escape esportivo
+    const lfo = ac.createOscillator();
+    lfo.type = 'square';
+    lfo.frequency.value = 28; // ~28 explosões por segundo = som de escape esportivo
+
+    const lfoGain = ac.createGain();
+    lfoGain.gain.value = 38; // profundidade da modulação
+
+    // LFO modula a frequência do oscilador principal
+    lfo.connect(lfoGain);
+    lfoGain.connect(osc.frequency);
+
+    // Distorção agressiva
+    const wave = ac.createWaveShaper();
+    const curve = new Float32Array(512);
+    for (let i = 0; i < 512; i++) {
+      const x = (i * 2) / 512 - 1;
+      curve[i] = (Math.PI + 600) * x / (Math.PI + 600 * Math.abs(x));
+    }
+    wave.curve = curve;
+
+    // Filtro passa-baixa — mantém grave, corta os chiados
+    const filter = ac.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 900;
+    filter.Q.value = 2.5;
+
+    const gain = ac.createGain();
+    gain.gain.value = 0.10;
+
+    osc.connect(wave);
+    wave.connect(filter);
+    filter.connect(gain);
+    gain.connect(ac.destination);
+
+    osc.start();
+    lfo.start();
+
+    motoEngineNodes = { osc, lfo, lfoGain, filter, gain };
+  } catch(e) {}
+}
+
+function atualizarSomMoto(speed) {}
+
+function pararSomMoto() {
+  if (!motoEngineNodes) return;
+  try {
+    motoEngineNodes.osc.stop();
+    motoEngineNodes.lfo.stop();
+  } catch(e) {}
+  motoEngineNodes = null;
+}
+
 // ============================================================
 // 🚀 JOGO DO FOGUETE — Canvas animado
 // ============================================================
 
 let FOGUETE_CONFIG = {
   faixas: [
-    { mult:2,  chance:35 },
-    { mult:5,  chance:25 },
-    { mult:10, chance:20 },
-    { mult:20, chance:12 },
-    { mult:50, chance:6  },
-    { mult:100,chance:2  },
+    { mult:3,   chance:5  },
+    { mult:5,   chance:37 },
+    { mult:10,  chance:28 },
+    { mult:20,  chance:18 },
+    { mult:50,  chance:10 },
+    { mult:100, chance:2  },
   ]
 };
 
@@ -1710,6 +2385,7 @@ function resetRocket() {
 
 function abrirFoguete() {
   if (tickets < 1) { toast('😢 Sem tickets! Faça um pedido para ganhar.'); return; }
+  pushHistoryJogo('foguete');
   document.getElementById('screenFoguete').classList.add('open');
   try { document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); } catch(e){}
   setTimeout(() => {
@@ -1743,7 +2419,7 @@ function sortearCrash() {
     const prev = i > 0 ? FOGUETE_CONFIG.faixas[i-1].mult : 1.0;
     acc += f.chance;
     if (rand < acc) {
-      return Math.max(1.05, parseFloat((prev + Math.random() * (f.mult - prev)).toFixed(2)));
+      return Math.max(2.5, parseFloat((prev + Math.random() * (f.mult - prev)).toFixed(2)));
     }
   }
   return FOGUETE_CONFIG.faixas[FOGUETE_CONFIG.faixas.length - 1].mult;
@@ -1850,6 +2526,13 @@ function loopFoguete(now) {
       display.className = 'mult-display danger';
     }
 
+    // Atualiza botão SACAR com pct atual
+    const eBtn2 = document.getElementById('ejetarBtn');
+    if (eBtn2 && !eBtn2.disabled) {
+      const pctAtual = Math.floor(multAtual);
+      eBtn2.textContent = `💰 SACAR ${pctAtual}% OFF`;
+    }
+
     // Crash
     if (multAtual >= crashMult) {
       crashar(rX, rY); return;
@@ -1939,13 +2622,13 @@ function jogarFoguete() {
   const display = document.getElementById('multDisplay');
   display.textContent = '1.00x';
   display.className   = 'mult-display';
-  document.getElementById('arenaStatus').textContent = 'Clique PARAR para travar seu multiplicador!';
+  document.getElementById('arenaStatus').textContent = 'Aperte SACAR para garantir seu desconto!';
   document.getElementById('fogueteResultado').style.display = 'none';
   document.getElementById('jogarFogueteBtn').style.display  = 'none';
   const eBtn = document.getElementById('ejetarBtn');
   eBtn.style.display = 'block';
   eBtn.disabled = false;
-  eBtn.textContent = '🛑 PARAR';
+  eBtn.textContent = '💰 SACAR 1% OFF';
   eBtn.style.background = '';
   eBtn.style.animation = '';
 
@@ -1963,12 +2646,11 @@ function pararMult() {
   multParado = multAtual;
   somEjetar();
 
-  // Mostrar o multiplicador travado na tela
-  document.getElementById('arenaStatus').textContent = `Parou em ${multParado.toFixed(2)}x — aguardando fim...`;
+  const pctSacado = Math.floor(multParado);
+  document.getElementById('arenaStatus').textContent = `Sacado ${pctSacado}% OFF — aguardando fim...`;
 
-  // Mudar visual do botão para indicar que foi travado
   const btn = document.getElementById('ejetarBtn');
-  btn.textContent = `🔒 ${multParado.toFixed(2)}x`;
+  btn.textContent = `🔒 ${pctSacado}% OFF sacado!`;
   btn.disabled = true;
   btn.style.background = 'linear-gradient(135deg,#444,#666)';
   btn.style.animation = 'none';
@@ -2165,6 +2847,8 @@ let snakeBody      = [];
 let snakeDir       = { x: 1, y: 0 };
 let snakeNextDirs  = []; // fila de inputs — garante que nenhum clique é perdido
 let snakeFood      = { x: 0, y: 0 };
+let snakeGoldenFood = null; // maçã dourada (null = não existe no momento)
+let snakeAppleCount = 0;    // contador de maçãs comidas para spawnar dourada
 let snakeCurScore  = 0;
 let snakeBestScore = 0;
 let snakeCols      = 20;
@@ -2265,11 +2949,11 @@ function snakeQueueDir(dir) {
 
 // ── ABERTURA / FECHAMENTO ────────────────────────────────────
 function abrirCobra() {
-  if (moedas < 1) { toast('😢 Sem moedas! Jogue outros jogos para ganhar.'); return; }
-  moedas--;
-  document.getElementById('moedaCount').textContent = fmt(moedas);
+  if (moedas < 1) { toast('😢 Sem diamantes! Jogue outros jogos para ganhar.'); return; }
+  pushHistoryJogo('cobra');
   const screenCobra = document.getElementById('screenCobra');
   screenCobra.style.display = 'block';
+  document.body.classList.add('cobra-aberta');
   snakeSC  = document.getElementById('snakeCanvas');
   snakeCTX = snakeSC.getContext('2d');
 
@@ -2303,6 +2987,11 @@ function _snakeResize() {
 function voltarLobbyCobra() {
   pararCobra();
   document.getElementById('screenCobra').style.display = 'none';
+  document.body.classList.remove('cobra-aberta');
+  // Volta a travar em portrait ao sair da cobra
+  if (screen.orientation && screen.orientation.lock) {
+    screen.orientation.lock('portrait').catch(() => {});
+  }
   window.removeEventListener('resize', _snakeResize);
   
   // Sair do fullscreen (simples e compatível)
@@ -2328,10 +3017,19 @@ function configurarGrade(w, h) {
   snakeSC.style.left   = '0';
   snakeSC.style.transform = '';
 
-  snakeCellSize = Math.floor(Math.min(w, h) / 20);
+  snakeCellSize = 18;
   if (snakeCellSize < 10) snakeCellSize = 10;
   snakeCols = Math.floor(w / snakeCellSize);
   snakeRows = Math.floor(h / snakeCellSize);
+
+  // Centraliza o D-pad em cima da zona da morte (canto inferior direito)
+  const zoneW = 12 * snakeCellSize;
+  const zoneH = 11 * snakeCellSize;
+  const dpad  = document.getElementById('snakeDpad');
+  const dpadW = dpad.offsetWidth  || 195;
+  const dpadH = dpad.offsetHeight || 195;
+  dpad.style.right  = Math.max(0, Math.round((zoneW - dpadW) / 2)) + 'px';
+  dpad.style.bottom = Math.max(0, Math.round((zoneH - dpadH) / 2) + snakeCellSize) + 'px';
 
   if (!snakeRunning) desenharCobra();
 }
@@ -2355,11 +3053,21 @@ function mostrarOverlayCobra(titulo, msg, btnTxt) {
 
 // ── INICIAR ───────────────────────────────────────────────────
 function iniciarCobra() {
+  // Desconta diamante ao clicar em Jogar
+  if (moedas < 1) { toast('😢 Sem diamantes! Jogue outros jogos para ganhar.'); return; }
+  moedas--;
+  deductDiamante();
+  document.getElementById('moedaCount').textContent = fmt(moedas);
+  const cdc = document.getElementById('cobradiamCount');
+  if (cdc) cdc.textContent = fmt(moedas);
+
   document.getElementById('snakeOverlay').style.display = 'none';
   snakeCurScore  = 0;
   snakePaused    = false;
-  snakeSpeed     = 120;  // Reduzido de 150 para resposta mais rápida
+  snakeSpeed     = 160;
   snakeNextDirs  = [];
+  snakeGoldenFood = null;
+  snakeAppleCount = 0;
   document.getElementById('snakeScore').textContent = '0';
   document.getElementById('snakeBest').textContent  = snakeBestScore;
   document.getElementById('snakePauseBtn').textContent = '⏸';
@@ -2414,27 +3122,52 @@ function pararCobra() {
 // ── SPAWN COMIDA ─────────────────────────────────────────────
 function spawnFood() {
   let pos, tries = 0;
-  const minX = SNAKE_BORDER, maxX = snakeCols - SNAKE_BORDER - 1;
-  const minY = SNAKE_BORDER, maxY = snakeRows - SNAKE_BORDER - 1;
-  
-  // Zona de controle (12x12 na parte inferior esquerda) - maçã não nasce aqui
-  const controlStartX = SNAKE_BORDER;
-  const controlEndX = SNAKE_BORDER + 12;
-  const controlStartY = snakeRows - SNAKE_BORDER - 12;
-  const controlEndY = snakeRows - SNAKE_BORDER;
+  const deathStartX = snakeCols - 12;
+  const deathStartY = snakeRows - 11;
+  // Range restrito: exclui completamente a zona da morte
+  const maxX = deathStartX - 1;
+  const maxY = snakeRows - 1;
   
   do {
+    // Gera X fora da zona (0 até deathStartX-1)
+    // Gera Y: se X está na faixa da zona, limita Y acima da zona; senão Y livre
+    const rx = Math.floor(Math.random() * deathStartX); // sempre fora horizontalmente
+    const ryMax = snakeRows - 1;
     pos = {
-      x: minX + Math.floor(Math.random() * (maxX - minX + 1)),
-      y: minY + Math.floor(Math.random() * (maxY - minY + 1))
+      x: rx,
+      y: Math.floor(Math.random() * (ryMax + 1))
     };
     tries++;
   } while (tries < 500 && (
     snakeBody.some(s => s.x === pos.x && s.y === pos.y) ||
-    // Não deixa maçã nascer dentro da zona verde de controle
-    (pos.x >= controlStartX && pos.x < controlEndX && pos.y >= controlStartY && pos.y < controlEndY)
+    (snakeGoldenFood && pos.x === snakeGoldenFood.x && pos.y === snakeGoldenFood.y)
   ));
   snakeFood = pos;
+
+  // A cada ~10 maçãs normais spawna uma dourada
+  snakeAppleCount++;
+  if (snakeAppleCount >= 7 + Math.floor(Math.random() * 7)) {
+    snakeAppleCount = 0;
+    spawnGoldenFood();
+  }
+}
+
+function spawnGoldenFood() {
+  let pos, tries = 0;
+  const deathStartX = snakeCols - 12;
+  const deathStartY = snakeRows - 11;
+  do {
+    const rx = Math.floor(Math.random() * deathStartX);
+    pos = {
+      x: rx,
+      y: Math.floor(Math.random() * snakeRows)
+    };
+    tries++;
+  } while (tries < 500 && (
+    snakeBody.some(s => s.x === pos.x && s.y === pos.y) ||
+    (pos.x === snakeFood.x && pos.y === snakeFood.y)
+  ));
+  snakeGoldenFood = pos;
 }
 
 // ── STEP ─────────────────────────────────────────────────────
@@ -2444,11 +3177,11 @@ function stepCobra() {
 
   let head = { x: snakeBody[0].x + snakeDir.x, y: snakeBody[0].y + snakeDir.y };
 
-  // ── ZONA VERDE PORTAL (12x12 na parte inferior esquerda) ──────
-  const CONTROL_START_X = SNAKE_BORDER;
-  const CONTROL_END_X = SNAKE_BORDER + 12;
-  const CONTROL_START_Y = snakeRows - SNAKE_BORDER - 12;
-  const CONTROL_END_Y = snakeRows - SNAKE_BORDER;
+  // ── ZONA VERDE PORTAL (12x11 na parte inferior DIREITA) ──────
+  const CONTROL_START_X = snakeCols - 12;
+  const CONTROL_END_X   = snakeCols;
+  const CONTROL_START_Y = snakeRows - 11;
+  const CONTROL_END_Y   = snakeRows;
   
   const inControlZone = (pos) => pos.x >= CONTROL_START_X && pos.x < CONTROL_END_X && 
                                   pos.y >= CONTROL_START_Y && pos.y < CONTROL_END_Y;
@@ -2457,25 +3190,23 @@ function stepCobra() {
   const bodyInZone = inControlZone(snakeBody[0]);
   
   // Se ENTROU na zona (corpo fora, cabeça dentro), faz o wrap-around
-  // ZONA INFERIOR ESQUERDA: só tem 2 lados livres (cima e direita)
+  // ZONA INFERIOR DIREITA: entradas possíveis por CIMA e pelo lado ESQUERDO
   if (!bodyInZone && headInZone) {
-    // Entrou por CIMA (Y descendo = -1) → sai para a DIREITA
-    // Mantém a posição Y (bloco vertical)
-    if (snakeDir.y === -1) {
-      head.x = CONTROL_END_X;  // Sai FORA da zona, à direita
-      head.y = snakeBody[0].y;  // Mantém o mesmo bloco vertical
+    // Entrou por CIMA (movendo para baixo = y:+1) → sai pela ESQUERDA
+    if (snakeDir.y === 1) {
+      head.x = CONTROL_START_X - 1;  // Sai FORA da zona, à esquerda
+      head.y = snakeBody[0].y;        // Mantém o bloco vertical
     }
-    // Entrou pelo LADO DIREITO (X para direita = +1) → sai por CIMA
-    // Mantém a posição X (bloco horizontal)
+    // Entrou pelo lado ESQUERDO (movendo para direita = x:+1) → sai por CIMA
     else if (snakeDir.x === 1) {
-      head.x = snakeBody[0].x;  // Mantém o mesmo bloco horizontal
-      head.y = CONTROL_START_Y - 1;  // Sai FORA da zona, acima
+      head.x = snakeBody[0].x;        // Mantém o bloco horizontal
+      head.y = CONTROL_START_Y - 1;   // Sai FORA da zona, acima
     }
   }
 
   // Colisão com borda - cobra só morre ao sair completamente
-  if (head.x <= 0 || head.x >= snakeCols ||
-      head.y <= 0 || head.y > snakeRows - SNAKE_BORDER) {
+  if (head.x < 0 || head.x >= snakeCols - 0 ||
+      head.y < 0  || head.y >= snakeRows - 0) {
     gameOverCobra(); return;
   }
   
@@ -2497,12 +3228,15 @@ function stepCobra() {
     document.getElementById('snakeScore').textContent = snakeCurScore;
     somCobraComeu();
     spawnFood();
-    // Acelera gradualmente
-    if (snakeCurScore % 5 === 0 && snakeSpeed > 70) {
-      snakeSpeed = Math.max(70, snakeSpeed - 10);
-      clearInterval(snakeLoop);
-      snakeLoop = setInterval(stepCobra, snakeSpeed);
-    }
+  } else if (snakeGoldenFood && head.x === snakeGoldenFood.x && head.y === snakeGoldenFood.y) {
+    // Maçã dourada vale 3 pontos
+    snakeCurScore += 3;
+    document.getElementById('snakeScore').textContent = snakeCurScore;
+    somCobraComeu();
+    snakeGoldenFood = null;
+    // Cresce 3 segmentos (não remove o rabo 3x)
+    snakeBody.push({...snakeBody[snakeBody.length-1]});
+    snakeBody.push({...snakeBody[snakeBody.length-1]});
   } else {
     snakeBody.pop();
   }
@@ -2522,32 +3256,19 @@ function desenharCobra() {
   ctx.fillStyle = '#010d03';
   ctx.fillRect(0, 0, W, H);
 
-  // ── ZONA VERDE DE MORTE (lado de fora) - SEM PISCAR ─────────
-  // Faixa esquerda - VERDE
+  // Faixa ESQUERDA
   ctx.fillStyle = 'rgba(50,200,50,0.4)';
-  ctx.fillRect(0, 0, b * cs, H);
-  // Faixa direita - VERDE
-  ctx.fillRect(W - b * cs, 0, b * cs, H);
-  // Faixa topo - VERDE
-  ctx.fillRect(0, 0, W, b * cs);
-  // Faixa base - VERDE (exatamente onde cobra morre)
-  ctx.fillRect(0, (snakeRows - b) * cs, W, b * cs);
+  ctx.fillRect(0, 0, 0 * cs, H);
 
-  // Linha interna brilhante - VERDE (sem piscar)
-  ctx.strokeStyle = 'rgba(100,255,100,0.7)';
-  ctx.lineWidth   = 2.5;
-  const bOff = b * cs - 1;
-  ctx.strokeRect(bOff, bOff, W - bOff * 2, H - bOff * 2);
+  // Faixa DIREITA
+  ctx.fillRect(W - 0 * cs, 0, 0 * cs, H);
 
-  // Hachura de alerta na borda - VERDE (sem piscar)
-  ctx.save();
-  ctx.globalAlpha = 0.1;
-  ctx.strokeStyle = '#66ff66';
-  ctx.lineWidth   = 1.5;
-  for (let i = -H; i < W + H; i += 18) {
-    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + H, H); ctx.stroke();
-  }
-  ctx.restore();
+  // Faixa TOPO
+  ctx.fillRect(0, 0, W, 0 * cs);
+
+  // Faixa BASE
+  ctx.fillRect(0, (snakeRows - 0) * cs,
+               W, H - (snakeRows - 0) * cs);
 
   // Grade da área de jogo
   ctx.strokeStyle = 'rgba(0,180,50,0.05)';
@@ -2559,11 +3280,11 @@ function desenharCobra() {
     ctx.beginPath(); ctx.moveTo(b*cs, y*cs); ctx.lineTo(W - b*cs, y*cs); ctx.stroke();
   }
 
-  // ── ZONA VERDE SEGURA (12x12 células na parte inferior esquerda) - TUDO VERDE ──
-  const controlStartX = b;
-  const controlEndX = b + 12;
-  const controlStartY = snakeRows - b - 12;
-  const controlEndY = snakeRows - b;
+  // ── ZONA VERDE SEGURA (12x11 células na parte inferior DIREITA) ──
+  const controlStartX = snakeCols - 12;
+  const controlEndX   = snakeCols;
+  const controlStartY = snakeRows - 11;
+  const controlEndY   = snakeRows;
   
   // Preenche toda a zona com verde (verde verde verde!)
   ctx.fillStyle = 'rgba(50,200,50,0.6)';
@@ -2574,20 +3295,41 @@ function desenharCobra() {
   ctx.lineWidth = 3;
   ctx.strokeRect(controlStartX * cs, controlStartY * cs, (controlEndX - controlStartX) * cs, (controlEndY - controlStartY) * cs);
 
-  // Comida
+  // Comida — maçã normal
   if (snakeBody.length > 0 || !snakeRunning) {
     const fx = snakeFood.x * cs + cs / 2;
     const fy = snakeFood.y * cs + cs / 2;
     const fp = 0.88 + 0.12 * Math.sin(t / 170);
-    const fr = cs * 0.40 * fp;
-    const fg = ctx.createRadialGradient(fx - cs*0.1, fy - cs*0.12, 0, fx, fy, fr * 1.2);
-    fg.addColorStop(0,   'rgba(255,140,140,1)');
-    fg.addColorStop(0.5, 'rgba(220,30,30,0.95)');
-    fg.addColorStop(1,   'rgba(140,0,0,0)');
-    ctx.beginPath(); ctx.arc(fx, fy, fr, 0, Math.PI * 2);
-    ctx.fillStyle = fg; ctx.fill();
-    ctx.beginPath(); ctx.arc(fx - cs*0.1, fy - cs*0.12, cs*0.09, 0, Math.PI*2);
-    ctx.fillStyle = 'rgba(255,210,210,0.75)'; ctx.fill();
+    ctx.save();
+    ctx.font = `${cs * 0.85 * fp}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🍎', fx, fy);
+    ctx.restore();
+  }
+
+  // Maçã dourada (+3) com brilho pulsante
+  if (snakeGoldenFood) {
+    const gx = snakeGoldenFood.x * cs + cs / 2;
+    const gy = snakeGoldenFood.y * cs + cs / 2;
+    const gp = 0.85 + 0.15 * Math.sin(t / 120);
+    // Brilho dourado atrás
+    ctx.save();
+    ctx.shadowColor = 'rgba(255,215,0,0.9)';
+    ctx.shadowBlur  = 10 + 6 * Math.sin(t / 120);
+    ctx.font = `${cs * 0.88 * gp}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🍏', gx, gy);
+    ctx.shadowBlur = 0;
+    // +3 acima da maçã
+    ctx.font = `bold ${cs * 0.42}px 'Fredoka One',cursive`;
+    ctx.fillStyle = '#FFD700';
+    ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+    ctx.lineWidth = 3;
+    ctx.strokeText('+3', gx + cs * 0.6, gy - cs * 0.5);
+    ctx.fillText('+3', gx + cs * 0.6, gy - cs * 0.5);
+    ctx.restore();
   }
 
   // Cobra
@@ -2693,9 +3435,7 @@ let memMatched=0, memErrors=0, memStartTime=null, memTimerInt=null, memTotalPare
 
 function abrirMemoria() {
   if (moedas < 1) { toast('😢 Sem moedas! Jogue outros jogos para ganhar.'); return; }
-  moedas--;
-  deductDiamante();
-  document.getElementById('moedaCount').textContent = fmt(moedas);
+  pushHistoryJogo('memoria');
   document.getElementById('screenMemoria').classList.add('open');
   document.getElementById('memDiffPanel').style.display = 'flex';
   document.getElementById('memWinOverlay').classList.remove('show');
@@ -2714,6 +3454,12 @@ function selecionarDiff(btn, diff) {
 }
 
 function iniciarMemoria() {
+  if (moedas < 1) { toast('😢 Sem moedas! Jogue outros jogos para ganhar.'); return; }
+  moedas--;
+  deductDiamante();
+  document.getElementById('moedaCount').textContent = fmt(moedas);
+  const mdc = document.getElementById('memDiamCount');
+  if (mdc) mdc.textContent = fmt(moedas);
   document.getElementById('memDiffPanel').style.display = 'none';
   document.getElementById('memWinOverlay').classList.remove('show');
   const cfg = MEM_DIFF[memDiff];
@@ -2844,8 +3590,7 @@ let entMotoImg = null;
 
 function abrirEntregador() {
   if (moedas < 1) { toast('😢 Sem diamantes! Jogue outros jogos para ganhar.'); return; }
-  moedas--;
-  document.getElementById('moedaCount').textContent = fmt(moedas);
+  pushHistoryJogo('entregador');
   document.getElementById('screenEntregador').classList.add('open');
   document.getElementById('entOverlay').style.display = 'flex';
   document.getElementById('entOverlayTitle').textContent = 'Entregador';
@@ -2929,6 +3674,12 @@ function entSetupTouch() {
 
 // ── INICIAR ───────────────────────────────────────
 function iniciarEntregador() {
+  if (moedas < 1) { toast('😢 Sem diamantes! Jogue outros jogos para ganhar.'); return; }
+  moedas--;
+  deductDiamante();
+  document.getElementById('moedaCount').textContent = fmt(moedas);
+  const edc = document.getElementById('entDiamCount');
+  if (edc) edc.textContent = fmt(moedas);
   document.getElementById('entOverlay').style.display = 'none';
   entScore = 0; entSpeed = 3.5; entSpeedTimer = 0;
   entSpawnTimer = 0; entSpawnInterval = 95;
@@ -2943,6 +3694,7 @@ function iniciarEntregador() {
   entRunning = true;
   cancelAnimationFrame(entRafId);
   entSetupTouch();
+  iniciarSomMoto();
   entLoop();
 }
 
@@ -2951,6 +3703,7 @@ function entParar() {
   cancelAnimationFrame(entRafId);
   entRafId = null;
   entTouchActive = false;
+  pararSomMoto();
 }
 
 // ── SPAWN ─────────────────────────────────────────
@@ -3020,7 +3773,8 @@ function entGameOver() {
     });
   }
   // Som
-  try { const ac=getAudio(); [320,240,160,100].forEach((f,i)=>{ const o=ac.createOscillator(),g=ac.createGain(); o.connect(g); g.connect(ac.destination); o.type='sawtooth'; const t=ac.currentTime+i*0.15; o.frequency.setValueAtTime(f,t); g.gain.setValueAtTime(0.12,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.14); o.start(t); o.stop(t+0.14); }); } catch(e){}
+  pararSomMoto();
+  somExplosaoMoto();
   let pf=0;
   const animExp = () => {
     entDesenharEstrada(entFrame);
@@ -3049,6 +3803,7 @@ function entLoop() {
   if (entSpeedTimer % 280 === 0) {
     entSpeed = Math.min(13, entSpeed + 0.45);
     entSpawnInterval = Math.max(42, entSpawnInterval - 4);
+    atualizarSomMoto(entSpeed);
   }
 
   // Score
@@ -3304,16 +4059,192 @@ let msAtivo    = false;
 let msAcertos  = 0;
 let msPrimeiro = true;
 
+// Estado do botão: 'jogar' | 'sacar'
+let msBtnEstado = 'jogar';
+let msPremioAtualObj = null; // prêmio atual em jogo
+
 function abrirMinado() {
   if (tickets < 1) { toast('😢 Sem tickets! Faça um pedido para ganhar.'); return; }
-  tickets--;
-  deductTicket();
-  document.getElementById('ticketCount').textContent = fmt(tickets);
+  pushHistoryJogo('minado');
   document.getElementById('screenMinado').classList.add('open');
   document.getElementById('msEndOverlay').classList.remove('show');
+  msVoltarInicio();
+  msAtualizarTickets();
   try { document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); } catch(e){}
-  msIniciar();
 }
+
+// Volta para estado inicial: grade bloqueada, botão "Jogar"
+function msDispararExplosao() {
+  // ── Shake da tela ─────────────────────────────────────────
+  const screen = document.getElementById('screenMinado');
+  const shakeSeq = [
+    [0,'-12px,4px'],[60,'10px,-6px'],[120,'-8px,5px'],
+    [180,'6px,-4px'],[240,'-4px,2px'],[300,'2px,-1px'],[380,'0,0']
+  ];
+  shakeSeq.forEach(([t, v]) => {
+    setTimeout(() => { screen.style.transform = `translate(${v})`; }, t);
+  });
+  setTimeout(() => { screen.style.transform = ''; }, 420);
+
+  // ── Partículas canvas ─────────────────────────────────────
+  const canvas = document.getElementById('msSparkCanvas');
+  if (!canvas) return;
+  const par = canvas.parentElement.getBoundingClientRect();
+  canvas.width  = par.width;
+  canvas.height = par.height;
+  const ctx = canvas.getContext('2d');
+  const cx = canvas.width / 2, cy = canvas.height / 2;
+  const COLS = ['#ff4400','#ff8800','#ffcc00','#ff2200','#ff6600','#ffffff','#ffddaa'];
+
+  const ps = [];
+  for (let i = 0; i < 70; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const sp = 3 + Math.random() * 11;
+    const sz = 3 + Math.random() * 9;
+    const lf = 0.55 + Math.random() * 0.9;
+    ps.push({ x:cx, y:cy, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp - Math.random()*3,
+              sz, lf, ml:lf, col:COLS[Math.floor(Math.random()*COLS.length)], g:0.22+Math.random()*0.2 });
+  }
+  for (let i = 0; i < 22; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const sp = 9 + Math.random() * 15;
+    ps.push({ x:cx, y:cy, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp,
+              sz:2, lf:0.28+Math.random()*0.35, ml:0.45, col:'#ffee88', g:0.08, line:true });
+  }
+
+  function hexToRgb(h) {
+    const r = parseInt(h.slice(1,3),16), g = parseInt(h.slice(3,5),16), b = parseInt(h.slice(5,7),16);
+    return `${r},${g},${b}`;
+  }
+
+  let t0 = null;
+  function frame(ts) {
+    if (!t0) t0 = ts;
+    const el = (ts - t0) / 1000;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Onda expansiva
+    if (el < 0.55) {
+      const r = el * canvas.width * 1.3;
+      const a = Math.max(0, 1 - el * 2.2);
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2);
+      ctx.strokeStyle = `rgba(255,100,0,${a})`; ctx.lineWidth = Math.max(0.5, 4 - el*7); ctx.stroke();
+    }
+    // Segunda onda
+    if (el > 0.08 && el < 0.7) {
+      const r2 = (el - 0.08) * canvas.width * 0.9;
+      const a2 = Math.max(0, 0.6 - (el-0.08)*1.5);
+      ctx.beginPath(); ctx.arc(cx, cy, r2, 0, Math.PI*2);
+      ctx.strokeStyle = `rgba(255,200,50,${a2})`; ctx.lineWidth = Math.max(0.5, 2 - el*3); ctx.stroke();
+    }
+
+    let alive = false;
+    for (const p of ps) {
+      p.lf -= 0.016; if (p.lf <= 0) continue; alive = true;
+      p.x += p.vx; p.y += p.vy; p.vy += p.g; p.vx *= 0.97;
+      const al = p.lf / p.ml;
+      if (p.line) {
+        ctx.beginPath(); ctx.moveTo(p.x, p.y);
+        ctx.lineTo(p.x - p.vx*4, p.y - p.vy*4);
+        ctx.strokeStyle = `rgba(255,238,136,${al})`; ctx.lineWidth = p.sz; ctx.stroke();
+      } else {
+        const gr = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.sz);
+        gr.addColorStop(0, `rgba(255,255,255,${al})`);
+        gr.addColorStop(1, `rgba(${hexToRgb(p.col)},${al*0.3})`);
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.sz * al, 0, Math.PI*2);
+        ctx.fillStyle = gr; ctx.fill();
+      }
+    }
+    if (alive || el < 0.7) requestAnimationFrame(frame);
+    else ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+  requestAnimationFrame(frame);
+}
+
+function msVoltarInicio() {
+  document.getElementById('msEndOverlay').classList.remove('show');
+  msAtivo    = false;
+  msAcertos  = 0;
+  msPremioAtualObj = null;
+  msBtnEstado = 'jogar';
+
+  // Reseta displays
+  document.getElementById('msAcertos').textContent   = '0';
+  document.getElementById('msBombCount').textContent = MS_BOMBAS;
+  document.getElementById('msPremioNome').textContent = '—';
+  document.getElementById('msPremioSub').textContent  = 'Vire células para desbloquear!';
+
+  // Cria grade bloqueada (não clicável)
+  const grid = document.getElementById('msGrid');
+  grid.innerHTML = '';
+  for (let i = 0; i < MS_TOTAL; i++) {
+    const el = document.createElement('div');
+    el.className = 'ms-cell';
+    grid.appendChild(el);
+  }
+
+  // Botão volta para "Jogar" e aparece
+  const btn = document.getElementById('msBtnPrincipal');
+  btn.textContent = '🎮 Jogar';
+  btn.style.background = 'linear-gradient(135deg,#1a6b1a,#2ecc2e,#1a6b1a)';
+  btn.style.animation = 'btnPulse 2s ease-in-out infinite';
+  msMostrarBtn();
+}
+
+// Ação do botão principal
+function msBtnAcao() {
+  if (msBtnEstado === 'jogar') {
+    // Debita ticket e inicia
+    if (tickets < 1) { toast('😢 Sem tickets! Faça um pedido para ganhar.'); return; }
+    tickets--;
+    deductTicket();
+    document.getElementById('ticketCount').textContent = fmt(tickets);
+    msEsconderBtn(); // esconde botão durante o jogo
+    msIniciar();
+  } else if (msBtnEstado === 'sacar') {
+    // Salva prêmio e finaliza
+    if (msPremioAtualObj) {
+      salvarPremio(msPremioAtualObj, 'Campo Minado');
+      lancarConfetti();
+      somVitoria();
+
+      // Mostra tela de prêmio no overlay
+      const p = msPremioAtualObj;
+      const nomeLabel = p.valor2 ? `${p.valor2}% off` : p.nome;
+      document.getElementById('msPrizeEmoji').textContent   = p.emoji || '🏷️';
+      document.getElementById('msPrizeNome').textContent    = p.nome;
+      document.getElementById('msPrizeAcertos').textContent = `${msAcertos} acerto${msAcertos !== 1 ? 's' : ''}`;
+      document.getElementById('msRestartBtn').textContent   = `💸 Sacar ${nomeLabel}`;
+      document.getElementById('msBlastScreen').style.display = 'none';
+      document.getElementById('msPrizeScreen').style.display = 'flex';
+      document.getElementById('msEndOverlay').classList.add('show');
+      msAtivo = false;
+    }
+  }
+}
+
+// Atualiza contador de tickets visível no jogo
+function msAtualizarTickets() {
+  const el = document.getElementById('msTicketCount');
+  if (el) el.textContent = tickets;
+}
+
+// Esconde o botão durante o jogo
+function msEsconderBtn() {
+  const wrap = document.getElementById('msBtnWrap');
+  if (wrap) wrap.style.display = 'none';
+}
+
+// Mostra o botão (estado: jogar ou sacar)
+function msMostrarBtn() {
+  const wrap = document.getElementById('msBtnWrap');
+  if (wrap) wrap.style.display = 'flex';
+  // Info de custo/tickets só aparece no estado "jogar"
+  const info = document.getElementById('msJogarInfo');
+  if (info) info.style.display = msBtnEstado === 'jogar' ? 'flex' : 'none';
+  msAtualizarTickets();
+}
+
 
 function voltarLobbyMinado() {
   msAtivo = false;
@@ -3341,6 +4272,8 @@ function msIniciar() {
   document.getElementById('msPremioNome').textContent = '—';
   document.getElementById('msPremioSub').textContent  = 'Vire células para desbloquear!';
   document.getElementById('msPremioNome').style.color = '#4ade80';
+  msBtnEstado = 'jogar';
+  msPremioAtualObj = null;
 
   // Cria todas as células do zero (só no início / reinício)
   const grid = document.getElementById('msGrid');
@@ -3374,6 +4307,23 @@ function msAtualizarPremio() {
   sub.textContent = prox
     ? `Próximo: ${prox.nome} com ${prox.acertos} acertos`
     : '🏆 Prêmio máximo desbloqueado!';
+
+  // Atualiza botão principal e estado
+  const btn = document.getElementById('msBtnPrincipal');
+  const info = document.getElementById('msJogarInfo');
+  if (p && p.nome !== 'Nenhum' && p.tipo !== 'nada') {
+    const label = p.valor2 ? `${p.valor2}% off` : p.nome;
+    btn.textContent = `💸 Sacar ${label}`;
+    btn.style.background = 'linear-gradient(135deg,#1a6b1a,#2ecc2e,#1a6b1a)';
+    msBtnEstado = 'sacar';
+    msPremioAtualObj = p;
+    if (info) info.style.display = 'none';
+    document.getElementById('msBtnWrap').style.display = 'flex'; // aparece o botão sacar
+  } else {
+    btn.textContent = '🎮 Jogar';
+    msBtnEstado = 'jogar';
+    msPremioAtualObj = null;
+  }
 }
 
 function msClicar(idx) {
@@ -3442,22 +4392,33 @@ function msClicar(idx) {
     }
 
     somExplosao();
-    const pg = msGetPremioAtual(msAcertos);
+    msDispararExplosao(); // vibração + partículas + shake
+
+    // Prêmio PERDIDO — jogador explodiu sem sacar
+    document.getElementById('msBlastScreen').style.display = 'flex';
+    document.getElementById('msPrizeScreen').style.display = 'none';
+
+    if (msAcertos > 0) {
+      document.getElementById('msBlastSub').textContent = `Você tinha ${msAcertos} acerto${msAcertos !== 1 ? 's' : ''} mas não sacou. Prêmio perdido! 😢`;
+    } else {
+      document.getElementById('msBlastSub').textContent = 'Você não tinha nenhum acerto desta vez.';
+    }
+
+    // Reseta botão para Jogar
+    const btnP = document.getElementById('msBtnPrincipal');
+    if (btnP) btnP.textContent = '🎮 Jogar';
+    msBtnEstado = 'jogar';
+    msPremioAtualObj = null;
+
+    // Mostra overlay após breve delay
     setTimeout(() => {
-      if (pg && pg.nome !== 'Nenhum' && pg.tipo !== 'nada') {
-        document.getElementById('msEndEmoji').textContent = pg.emoji || '💥';
-        document.getElementById('msEndTitle').textContent = '🎉 Você ganhou!';
-        document.getElementById('msEndMsg').textContent   = `${pg.nome} com ${msAcertos} acertos!${pg.codigo ? '\nCupom: ' + pg.codigo : ''}`;
-        lancarConfetti();
-        somVitoria();
-        salvarPremio(pg, 'Campo Minado');
-      } else {
-        document.getElementById('msEndEmoji').textContent = '💥';
-        document.getElementById('msEndTitle').textContent = 'BOOM! Explodiu!';
-        document.getElementById('msEndMsg').textContent   = `Você tinha ${msAcertos} acertos. Tente de novo!`;
-      }
       document.getElementById('msEndOverlay').classList.add('show');
-    }, 700);
+    }, 400);
+
+    // Auto-retorno após 3.5s
+    setTimeout(() => {
+      msVoltarInicio();
+    }, 3800);
     return;
   }
 
@@ -3470,6 +4431,255 @@ function msClicar(idx) {
 }
 
 function msRenderizarComFim() {} // mantido por compatibilidade
+
+// ============================================================
+// 🥤 JOGO DO COPO — coxinha escondida embaixo do copo certo
+// ============================================================
+let copoPosicoes    = [0, 1, 2]; // posição visual de cada copo (índice = copo lógico)
+let copoCorreto     = 0;         // qual copo lógico tem a coxinha
+let copoFase        = 'idle';    // idle | mostrando | embaralhando | adivinha | resultado
+let copoDificuldade = 'facil';   // facil | medio | dificil
+let copoAnimando    = false;
+
+const COPO_DIFF = {
+  facil:   { trocas: 4,  velocidade: 520 },
+  medio:   { trocas: 7,  velocidade: 360 },
+  dificil: { trocas: 12, velocidade: 230 },
+};
+
+function abrirCopo() {
+  if (moedas < 35) { toast('😢 Você precisa de 35 diamantes para jogar!'); return; }
+  pushHistoryJogo('copo');
+  document.getElementById('screenCopo').classList.add('open');
+  copoReiniciar();
+  copoAtualizarTickets();
+  try { document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); } catch(e){}
+}
+
+function voltarLobbyCopo() {
+  copoFase = 'idle';
+  copoAnimando = false;
+  document.getElementById('screenCopo').classList.remove('open');
+  try { document.exitFullscreen && document.exitFullscreen(); } catch(e){}
+}
+
+function copoAtualizarTickets() {
+  const el = document.getElementById('copoTicketCount');
+  const el2 = document.getElementById('copoTicketInfo');
+  if (el) el.textContent = moedas;
+  if (el2) el2.textContent = moedas;
+}
+
+function copoSetDiff(d) {
+  copoDificuldade = d;
+  ['facil','medio','dificil'].forEach(k => {
+    document.getElementById('diff' + k.charAt(0).toUpperCase() + k.slice(1))?.classList.toggle('ativo', k === d);
+  });
+}
+
+function copoReiniciar() {
+  copoPosicoes = [0, 1, 2];
+  copoCorreto  = Math.floor(Math.random() * 3);
+  copoFase     = 'idle';
+  copoAnimando = false;
+
+  // Reset visual de todos os copos
+  for (let i = 0; i < 3; i++) {
+    const wrap = document.getElementById('copoWrap' + i);
+    const cup  = document.getElementById('copoCup' + i);
+    const cox  = document.getElementById('copoCoxinha' + i);
+    wrap.classList.remove('correto','errado');
+    wrap.style.pointerEvents = 'none';
+    cup.style.transform  = '';
+    cup.style.transition = '';
+    cox.style.opacity = '0';
+    cox.style.transform = '';
+    document.getElementById('copoLabel' + i).textContent = ['A','B','C'][i];
+    copoSetPos(i, i);
+  }
+
+  document.getElementById('copoStatus').textContent = 'Pronto para jogar?';
+  document.getElementById('copoBtnWrap').style.display = 'flex';
+  document.getElementById('copoResultOverlay').classList.remove('show');
+  document.getElementById('copoDifficulty').style.display = 'flex';
+  document.getElementById('copoBtn').textContent = '🎮 Jogar';
+  copoAtualizarTickets();
+}
+
+function copoSetPos(cupoIdx, posIdx) {
+  // Posiciona o copo na coluna visual (0=esquerda,1=centro,2=direita)
+  const wrap = document.getElementById('copoWrap' + cupoIdx);
+  const col  = posIdx;
+  // Ajuste de posição via translateX relativo ao centro
+  const offsets = [-108, 0, 108]; // px para cada coluna
+  wrap.style.position  = 'absolute';
+  wrap.style.bottom    = '0';
+  wrap.style.left      = '50%';
+  wrap.style.transform = `translateX(calc(-50% + ${offsets[col]}px))`;
+  copoPosicoes[cupoIdx] = col;
+}
+
+function copoBtnAcao() {
+  if (copoAnimando) return;
+  if (moedas < 35) { toast('😢 Você precisa de 35 diamantes!'); return; }
+  moedas -= 35;
+  deductDiamante();
+  document.getElementById('moedaCount').textContent = fmt(moedas);
+  copoAtualizarTickets();
+  document.getElementById('copoBtnWrap').style.display = 'none';
+  document.getElementById('copoDifficulty').style.display = 'none';
+  copoMostrarCoxinha();
+}
+
+function copoMostrarCoxinha() {
+  // Levanta o copo correto para mostrar a coxinha
+  copoFase = 'mostrando';
+  copoAnimando = true;
+  document.getElementById('copoStatus').textContent = '👀 Memorize onde está a coxinha!';
+
+  const cup = document.getElementById('copoCup' + copoCorreto);
+  const cox = document.getElementById('copoCoxinha' + copoCorreto);
+
+  cup.style.transition = 'transform 0.45s cubic-bezier(.4,0,.2,1)';
+  cup.style.transform  = 'translateY(-80px)';
+  cox.style.transition = 'opacity 0.3s';
+  cox.style.opacity    = '1';
+
+  setTimeout(() => {
+    cup.style.transform = '';
+    cox.style.opacity   = '0';
+    setTimeout(() => copoEmbaralhar(), 500);
+  }, 1200);
+}
+
+function copoEmbaralhar() {
+  copoFase = 'embaralhando';
+  document.getElementById('copoStatus').textContent = '🔀 Acompanhe a coxinha...';
+
+  const { trocas, velocidade } = COPO_DIFF[copoDificuldade];
+  let step = 0;
+
+  function proxTroca() {
+    if (step >= trocas) {
+      setTimeout(() => copoAguardarPalpite(), 350);
+      return;
+    }
+    // Escolhe dois copos aleatórios para trocar
+    let a = Math.floor(Math.random() * 3);
+    let b;
+    do { b = Math.floor(Math.random() * 3); } while (b === a);
+    copoTrocar(a, b, velocidade * 0.9);
+    step++;
+    setTimeout(proxTroca, velocidade);
+  }
+  proxTroca();
+}
+
+function copoTrocar(ia, ib, dur) {
+  const posA = copoPosicoes[ia];
+  const posB = copoPosicoes[ib];
+  const offsets = [-108, 0, 108];
+
+  const wA = document.getElementById('copoWrap' + ia);
+  const wB = document.getElementById('copoWrap' + ib);
+
+  const durS = dur / 1000;
+  wA.style.transition = `transform ${durS}s cubic-bezier(.4,0,.2,1)`;
+  wB.style.transition = `transform ${durS}s cubic-bezier(.4,0,.2,1)`;
+
+  // Arco: um sobe, outro desce durante o cruzamento
+  const midY = ia < ib ? -50 : 50;
+  wA.style.transform = `translateX(calc(-50% + ${offsets[posB]}px)) translateY(${midY}px)`;
+  wB.style.transform = `translateX(calc(-50% + ${offsets[posA]}px)) translateY(${-midY}px)`;
+
+  setTimeout(() => {
+    wA.style.transition = `transform ${durS * 0.5}s ease`;
+    wB.style.transition = `transform ${durS * 0.5}s ease`;
+    wA.style.transform  = `translateX(calc(-50% + ${offsets[posB]}px))`;
+    wB.style.transform  = `translateX(calc(-50% + ${offsets[posA]}px))`;
+    copoPosicoes[ia] = posB;
+    copoPosicoes[ib] = posA;
+  }, dur * 0.55);
+}
+
+function copoAguardarPalpite() {
+  copoFase = 'adivinha';
+  copoAnimando = false;
+  document.getElementById('copoStatus').textContent = '🤔 Em qual copo está a coxinha?';
+  for (let i = 0; i < 3; i++) {
+    document.getElementById('copoWrap' + i).style.pointerEvents = 'auto';
+  }
+}
+
+function copoClicar(idx) {
+  if (copoFase !== 'adivinha') return;
+  copoFase = 'resultado';
+  copoAnimando = true;
+  for (let i = 0; i < 3; i++) {
+    document.getElementById('copoWrap' + i).style.pointerEvents = 'none';
+  }
+
+  const acertou = (idx === copoCorreto);
+
+  // Levanta o copo clicado
+  const cupClicado = document.getElementById('copoCup' + idx);
+  cupClicado.style.transition = 'transform 0.4s cubic-bezier(.4,0,.2,1)';
+  cupClicado.style.transform  = 'translateY(-80px)';
+
+  // Se errou, levanta também o correto depois de um instante
+  if (!acertou) {
+    setTimeout(() => {
+      const cupCorreto = document.getElementById('copoCup' + copoCorreto);
+      cupCorreto.style.transition = 'transform 0.4s cubic-bezier(.4,0,.2,1)';
+      cupCorreto.style.transform  = 'translateY(-80px)';
+      const coxCorreto = document.getElementById('copoCoxinha' + copoCorreto);
+      coxCorreto.style.transition = 'opacity 0.3s';
+      coxCorreto.style.opacity = '1';
+    }, 350);
+  } else {
+    const cox = document.getElementById('copoCoxinha' + idx);
+    cox.style.transition = 'opacity 0.3s';
+    cox.style.opacity = '1';
+  }
+
+  document.getElementById('copoWrap' + idx).classList.add(acertou ? 'correto' : 'errado');
+  if (!acertou) document.getElementById('copoWrap' + copoCorreto).classList.add('correto');
+
+  setTimeout(() => copoMostrarResultado(acertou), 900);
+}
+
+function copoMostrarResultado(acertou) {
+  const overlay = document.getElementById('copoResultOverlay');
+  document.getElementById('copoResultEmoji').textContent  = acertou ? '🎉' : '😢';
+  document.getElementById('copoResultTitle').textContent  = acertou ? 'Acertou!' : 'Errou!';
+  document.getElementById('copoResultSub').textContent    = acertou
+    ? 'Você encontrou a coxinha! Jogue de novo para ganhar mais tickets!'
+    : 'A coxinha estava no outro copo. Tente de novo!';
+  overlay.classList.add('show');
+
+  if (acertou) {
+    lancarConfetti();
+    somVitoria();
+    // Prêmio fixo: 1 ticket
+    tickets += 1;
+    document.getElementById('ticketCount').textContent = fmt(tickets);
+    // Salva ticket ganho no Supabase
+    try {
+      if (typeof sb !== 'undefined' && userPhone) {
+        sb.from('clientes').update({ tickets: tickets }).eq('phone', userPhone).then(() => {});
+      }
+    } catch(e) {}
+    document.getElementById('copoResultSub').textContent =
+      '🎟️ +1 ticket ganho! Você encontrou a coxinha! 🏆';
+  }
+  copoAnimando = false;
+}
+
+function copoJogarNovamente() {
+  if (moedas < 35) { toast('😢 Você precisa de 35 diamantes para jogar!'); voltarLobbyCopo(); return; }
+  copoReiniciar();
+}
+
 </script>
 </body>
 </html>

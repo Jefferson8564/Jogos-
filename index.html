@@ -1460,9 +1460,15 @@ function forcarPortrait() {
 
 async function initJogos() {
   userPhone = localStorage.getItem('salgados_phone');
+  
   if (!userPhone) {
-    toast('⚠️ Faça login no cardápio primeiro!');
-    return;
+    // Se não houver usuário, conectar como ADM para testes apenas
+    const ADMIN_PHONE = '81996603348';
+    const ADMIN_NAME = 'ADM Rei da Coxinha';
+    userPhone = ADMIN_PHONE;
+    localStorage.setItem('salgados_phone', ADMIN_PHONE);
+    localStorage.setItem('salgados_user', JSON.stringify({ name: ADMIN_NAME, phone: ADMIN_PHONE }));
+    toast('🔧 Conectado como ADM para testes');
   }
 
   try {
@@ -1597,10 +1603,7 @@ async function salvarPremio(premio, jogo) {
     // ── Ganhou ticket extra ───────────────────────────────────────────
     if (premio.tipo === 'ticket') {
       const qtd = parseInt(premio.codigo) || 1;
-      await sb.from('clientes').update({ tickets: tickets + qtd }).eq('phone', userPhone);
-      tickets += qtd;
-      atualizarTodaUI();
-      // Registra na tabela premios
+      // Apenas registra na tabela premios (não atualiza clientes)
       await sb.from('premios').insert({
         customer_name:    customerName,
         customer_phone:   userPhone,
@@ -1615,10 +1618,7 @@ async function salvarPremio(premio, jogo) {
     // ── Ganhou diamante extra ─────────────────────────────────────────
     if (premio.tipo === 'diamante') {
       const qtd = parseInt(premio.codigo) || 1;
-      await sb.from('clientes').update({ diamantes: moedas + qtd }).eq('phone', userPhone);
-      moedas += qtd;
-      atualizarTodaUI();
-      // Registra na tabela premios
+      // Apenas registra na tabela premios (não atualiza clientes)
       await sb.from('premios').insert({
         customer_name:    customerName,
         customer_phone:   userPhone,
@@ -1630,24 +1630,16 @@ async function salvarPremio(premio, jogo) {
       return;
     }
 
-    // ── Desconto → salva cupom em pedidos (loja precisa para aplicar) ─
+    // ── Desconto → salva cupom apenas na tabela premios ─
     if (premio.tipo === 'desconto') {
       const pctDesconto = premio.valor2 || parseInt(premio.codigo) || 0;
-      const descricao   = `🎮 ${jogo} — Cupom ${pctDesconto}% OFF`;
-      await sb.from('pedidos').insert({
-        customer_name:  customerName,
-        customer_phone: userPhone,
-        items:          descricao,
-        total:          pctDesconto,
-        payment_method: 'PREMIO',
-        status:         'pendente',
-      });
-      // Também registra na tabela premios para o histórico do admin
+      const descricao   = `${premio.emoji || '🎁'} ${premio.nome} — ${pctDesconto}% de desconto`;
+      // Registra na tabela premios para o histórico do admin
       await sb.from('premios').insert({
         customer_name:    customerName,
         customer_phone:   userPhone,
         jogo:             jogoLow,
-        descricao:        `${premio.emoji || '🎁'} ${premio.nome} — ${pctDesconto}% de desconto`,
+        descricao:        descricao,
         tickets_usados:   tkUsados,
         diamantes_usados: diUsados,
       });
@@ -1665,7 +1657,9 @@ async function salvarPremio(premio, jogo) {
       diamantes_usados: diUsados,
     });
 
-  } catch(e) { console.warn('salvarPremio:', e); }
+  } catch(e) { 
+    console.error('Erro ao salvar prêmio:', e);
+  }
 }
 
 // ── DEDUCAO de ticket/diamante do Supabase ────────────────────────────
@@ -4663,7 +4657,7 @@ function copoMostrarResultado(acertou) {
     // Prêmio fixo: 1 ticket
     tickets += 1;
     document.getElementById('ticketCount').textContent = fmt(tickets);
-    // Salva ticket ganho no Supabase
+    // Atualiza apenas o total de tickets no cliente (sem registrar no histórico de prêmios)
     try {
       if (typeof sb !== 'undefined' && userPhone) {
         sb.from('clientes').update({ tickets: tickets }).eq('phone', userPhone).then(() => {});

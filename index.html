@@ -1134,38 +1134,87 @@ async function salvarPremio(premio, jogo) {
   if (!userPhone || !premio) return;
   if (premio.tipo === 'nada') return;
 
+  // Descobre quantos tickets ou diamantes foram usados neste jogo
+  const jogoLow = jogo.toLowerCase();
+  const tkUsados = (jogoLow === 'roleta' || jogoLow === 'foguete') ? 1 : 0;
+  const diUsados = (jogoLow === 'campo minado') ? 1 : 0;
+
+  // Nome do cliente
+  const _u = localStorage.getItem('salgados_user');
+  const customerName = _u ? (JSON.parse(_u).name || userPhone) : userPhone;
+
   try {
+    // ── Ganhou ticket extra ───────────────────────────────────────────
     if (premio.tipo === 'ticket') {
       const qtd = parseInt(premio.codigo) || 1;
       await sb.from('clientes').update({ tickets: tickets + qtd }).eq('phone', userPhone);
       tickets += qtd;
       atualizarTodaUI();
+      // Registra na tabela premios
+      await sb.from('premios').insert({
+        customer_name:    customerName,
+        customer_phone:   userPhone,
+        jogo:             jogoLow,
+        descricao:        `${premio.emoji || '🎟️'} ${premio.nome} — +${qtd} ticket(s)`,
+        tickets_usados:   tkUsados,
+        diamantes_usados: diUsados,
+      });
       return;
     }
 
+    // ── Ganhou diamante extra ─────────────────────────────────────────
     if (premio.tipo === 'diamante') {
       const qtd = parseInt(premio.codigo) || 1;
       await sb.from('clientes').update({ diamantes: moedas + qtd }).eq('phone', userPhone);
       moedas += qtd;
       atualizarTodaUI();
+      // Registra na tabela premios
+      await sb.from('premios').insert({
+        customer_name:    customerName,
+        customer_phone:   userPhone,
+        jogo:             jogoLow,
+        descricao:        `${premio.emoji || '💎'} ${premio.nome} — +${qtd} diamante(s)`,
+        tickets_usados:   tkUsados,
+        diamantes_usados: diUsados,
+      });
       return;
     }
 
-    // desconto ou pessoal → salva como cupom em pedidos
-    const descricao = premio.tipo === 'desconto'
-      ? `🎮 ${jogo} — Cupom ${premio.valor2 || premio.codigo}% OFF (${premio.codigo})`
-      : `🎮 ${jogo} — Prêmio: ${premio.nome}${premio.codigo ? ' ('+premio.codigo+')' : ''}`;
+    // ── Desconto → salva cupom em pedidos (loja precisa para aplicar) ─
+    if (premio.tipo === 'desconto') {
+      const pctDesconto = premio.valor2 || parseInt(premio.codigo) || 0;
+      const descricao   = `🎮 ${jogo} — Cupom ${pctDesconto}% OFF`;
+      await sb.from('pedidos').insert({
+        customer_name:  customerName,
+        customer_phone: userPhone,
+        items:          descricao,
+        total:          pctDesconto,
+        payment_method: 'PREMIO',
+        status:         'pendente',
+      });
+      // Também registra na tabela premios para o histórico do admin
+      await sb.from('premios').insert({
+        customer_name:    customerName,
+        customer_phone:   userPhone,
+        jogo:             jogoLow,
+        descricao:        `${premio.emoji || '🎁'} ${premio.nome} — ${pctDesconto}% de desconto`,
+        tickets_usados:   tkUsados,
+        diamantes_usados: diUsados,
+      });
+      return;
+    }
 
-    const pctDesconto = premio.tipo === 'desconto' ? (premio.valor2 || parseInt(premio.codigo) || 0) : 0;
-
-    await sb.from('pedidos').insert({
-      customer_name:  localStorage.getItem('salgados_user') ? JSON.parse(localStorage.getItem('salgados_user')).name : userPhone,
-      customer_phone: userPhone,
-      items:          descricao,
-      total:          pctDesconto,
-      payment_method: 'PREMIO',
-      status:         'pendente',
+    // ── Prêmio pessoal (brinde físico, etc.) ─────────────────────────
+    const descricao = `${premio.emoji || '🎁'} ${premio.nome}${premio.codigo ? ' — ' + premio.codigo : ''}`;
+    await sb.from('premios').insert({
+      customer_name:    customerName,
+      customer_phone:   userPhone,
+      jogo:             jogoLow,
+      descricao:        descricao,
+      tickets_usados:   tkUsados,
+      diamantes_usados: diUsados,
     });
+
   } catch(e) { console.warn('salvarPremio:', e); }
 }
 

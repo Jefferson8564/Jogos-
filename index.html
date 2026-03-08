@@ -1513,6 +1513,20 @@ async function initJogos() {
     }
 
     // Configs dos jogos
+    // ⚠️ IMPORTANTE: Os prêmios são carregados do Supabase da tabela jogos_configs
+    // Estrutura esperada no campo "valor" (JSON):
+    // [
+    //   {
+    //     "emoji": "🏷️",
+    //     "nome": "5% OFF",
+    //     "tipo": "desconto",
+    //     "codigo": "REI5",
+    //     "valor2": 5,        ← Este campo é CRUCIAL para a mensagem de desconto!
+    //     "chance": 25,
+    //     "cor": "#ff3b3b"
+    //   },
+    //   ...
+    // ]
     if (cfgRes.data) {
       const get = (jogo, chave) => {
         const row = cfgRes.data.find(r => r.jogo === jogo && r.chave === chave);
@@ -1524,6 +1538,8 @@ async function initJogos() {
         PREMIOS = roletaData.map((p, i) => ({
           ...p,
           id:  i + 1,
+          // Garante que valor2 ou desconto sempre exista para mensagens
+          valor2: p.valor2 !== undefined ? p.valor2 : p.desconto,
           cor: (p.cor || ['#ff3b3b','#2196f3','#00c853','#FFD700','#9c27b0','#607d8b','#e91e8c'][i % 7]),
         }));
         buildPremiosList();
@@ -1870,10 +1886,13 @@ function mostrarResultado(p){
 }
 
 function descricao(p){
-  if(p.tipo==='desconto') return `Use o cupom abaixo e ganhe ${p.valor2||''}% de desconto no próximo pedido!`;
+  // Usa o valor2 do prêmio que vem do Supabase
+  if(p.tipo==='desconto') {
+    return `Use seu cupom e aproveite desconto na sua próxima compra!`;
+  }
   if(p.tipo==='pessoal')  return `Prêmio especial! ${p.codigo ? 'Mostre o código ao fazer o pedido.' : ''}`;
-  if(p.tipo==='ticket')   return `🎟️ ${p.codigo||1} ticket(s) adicionado(s) à sua conta!`;
-  if(p.tipo==='diamante') return `💎 ${p.codigo||1} diamante(s) adicionado(s) à sua conta!`;
+  if(p.tipo==='ticket')   return `🎟️ ${p.valor || p.codigo || 1} ticket(s) adicionado(s) à sua conta!`;
+  if(p.tipo==='diamante') return `💎 ${p.valor || p.codigo || 1} diamante(s) adicionado(s) à sua conta!`;
   if(p.tipo==='frete')    return 'Próximo pedido com entrega grátis! Use o cupom abaixo.';
   return '';
 }

@@ -999,7 +999,7 @@ header {
       <div class="game-card foguete" onclick="abrirFoguete()">
         <span class="game-card-emoji">🚀</span>
         <div class="game-card-name">Foguete</div>
-        <div class="game-card-desc">Ejete antes de explodir e multiplique seus tickets!</div>
+        <div class="game-card-desc">Ejete antes de explodir e ganhe desconto no seu pedido!</div>
         <div style="margin-top:8px;display:inline-flex;align-items:center;gap:4px;background:rgba(255,215,0,0.12);border:1px solid rgba(255,215,0,0.3);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:900;color:var(--yellow);">🎟️ 1 ticket</div>
       </div>
 
@@ -4814,6 +4814,9 @@ function abrirCopo() {
   copoReiniciar();
   copoAtualizarTickets();
   try { document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); } catch(e){}
+  if (screen.orientation && screen.orientation.lock) {
+    screen.orientation.lock('portrait').catch(() => {});
+  }
 }
 
 function voltarLobbyCopo() {
@@ -4821,6 +4824,9 @@ function voltarLobbyCopo() {
   copoAnimando = false;
   document.getElementById('screenCopo').classList.remove('open');
   try { document.exitFullscreen && document.exitFullscreen(); } catch(e){}
+  if (screen.orientation && screen.orientation.lock) {
+    screen.orientation.lock('portrait').catch(() => {});
+  }
 }
 
 function copoAtualizarTickets() {
@@ -6144,6 +6150,7 @@ async function atualizarMoedasSupabase() {
 
 const _cardCM=document.getElementById('cardCoxinhaManImg');
 if(_cardCM) _cardCM.src=_COXINHA_SRC;
+for(let i=0;i<4;i++){const _c=document.getElementById('copoCoxinha'+i);if(_c)_c.src=_COXINHA_SRC;}
 
 </script>
 </body>

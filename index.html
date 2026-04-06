@@ -15,21 +15,7 @@
   @keyframes rotAnim { 0%,100%{transform:rotate(-20deg)} 50%{transform:rotate(20deg)} }
   @media screen and (orientation: landscape) {
     #rotateOverlay { display: flex; }
-    /* Quando cobra está aberta, esconde o overlay global de landscape */
-    body.cobra-aberta #rotateOverlay { display: none; }
     body.coxinhaman-aberto #rotateOverlay { display: none; }
-  }
-  /* Overlay portrait dentro da cobra — só aparece em portrait */
-  #snakePortraitOverlay {
-    display: none;
-    position: absolute; inset: 0; z-index: 200;
-    background: #000e04;
-    flex-direction: column; align-items: center; justify-content: center; gap: 18px;
-  }
-  #snakePortraitOverlay .rot-emoji { font-size: 64px; animation: rotAnim 1.5s ease-in-out infinite; }
-  #snakePortraitOverlay .rot-txt { font-family: 'Fredoka One', cursive; font-size: 22px; color: #4eff88; text-align: center; padding: 0 32px; line-height: 1.5; }
-  @media screen and (orientation: portrait) {
-    #snakePortraitOverlay { display: flex; }
   }
 </style>
 <title>🎮 Jogos — O Rei da Coxinha</title>
@@ -105,6 +91,38 @@ header {
 .game-card.em-breve:hover { transform:none; box-shadow:none; }
 .game-card.em-breve:active{ transform:none; }
 
+/* ── CARD COM CAPA (jogos externos) ── */
+.game-card.cover-card {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.game-card-cover-img {
+  width: 100%;
+  aspect-ratio: 16/10;
+  object-fit: cover;
+  display: block;
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: #1a1a1a;
+}
+.game-card-cover-fallback {
+  width: 100%;
+  aspect-ratio: 16/10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 46px;
+  background: rgba(255,255,255,0.05);
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+.game-card-cover-body {
+  padding: 10px 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .game-card-emoji { font-size:46px; display:block; margin-bottom:10px; filter:drop-shadow(0 4px 10px rgba(0,0,0,0.4)); animation:cardFloat 4s ease-in-out infinite; }
 @keyframes cardFloat{0%,100%{transform:translateY(0);}50%{transform:translateY(-5px);}}
 .game-card-name { font-family:'Fredoka One',cursive; font-size:16px; color:var(--white); line-height:1.2; margin-bottom:5px; }
@@ -117,6 +135,22 @@ header {
 /* shine */
 .game-card.roleta::after { content:''; position:absolute; top:-50%; left:-60%; width:40%; height:200%; background:linear-gradient(105deg,transparent,rgba(255,255,255,0.08),transparent); transform:skewX(-20deg); animation:shine 4s ease-in-out infinite; }
 @keyframes shine{0%,100%{left:-60%}50%{left:130%}}
+
+/* SEÇÕES DE JOGOS */
+.game-section { margin-bottom: 36px; }
+.game-section-header {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 16px; padding: 0 4px;
+  font-family: 'Fredoka One', cursive; font-size: 18px;
+  color: var(--white);
+  text-shadow: 0 2px 8px rgba(255,107,0,0.3);
+}
+.game-section-icon { font-size: 24px; }
+.game-section-divider {
+  flex: 1; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  margin-left: 10px;
+}
 
 /* ── FULLSCREEN GAME OVERLAY ── */
 .game-fullscreen {
@@ -334,7 +368,7 @@ header {
 /* TOAST */
 .toast-msg { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:rgba(30,15,0,0.95); border:1px solid rgba(255,107,0,0.35); color:var(--white); padding:12px 22px; border-radius:16px; font-size:13px; font-weight:800; z-index:9998; white-space:nowrap; box-shadow:0 8px 28px rgba(0,0,0,0.5); animation:fadeIn 0.3s ease; }
 
-@media(min-width:480px){ .game-grid{grid-template-columns:repeat(3,1fr);} }
+/* grid sempre 2 colunas */
 
 /* D-PAD visual buttons */
 .dpad-vis {
@@ -969,17 +1003,15 @@ header {
 <!-- ===== LOBBY ===== -->
 <div id="screenLobby">
   <div class="lobby-wrap">
-    <div class="lobby-title">🎮 Jogos & Prêmios</div>
-    <div class="lobby-sub">Use seus tickets para girar e ganhar!</div>
-    <div class="ticket-info-msg" style="margin:0 auto 8px;">
-      <span class="tim-icon">🎟️</span>
-      <span class="tim-text" id="lobbyTicketMsg">A cada <strong>R$ 30,00</strong> em compras você ganha <strong>1 ticket</strong> para girar!</span>
-    </div>
-    <div class="ticket-info-msg" style="margin:0 auto 20px;background:rgba(56,189,248,0.07);border-color:rgba(56,189,248,0.3);">
-      <span class="tim-icon">💎</span>
-      <span class="tim-text" id="lobbyDiamanteMsg" style="color:rgba(255,248,238,0.75);">A cada <strong style="color:#38bdf8;">R$ 10,00</strong> em compras você ganha <strong style="color:#38bdf8;">1 diamante</strong> para jogar!</span>
-    </div>
-    <div class="game-grid">
+
+    <!-- SEÇÃO: JOGOS PREMIUM -->
+    <div class="game-section">
+      <div class="game-section-header">
+        <span class="game-section-icon">🏓</span>
+        <span>Jogos com Prêmios</span>
+        <div class="game-section-divider"></div>
+      </div>
+      <div class="game-grid">
 
       <!-- TICKET -->
       <div class="game-card roleta" onclick="abrirRoleta()">
@@ -1019,15 +1051,19 @@ header {
         <div style="margin-top:8px;display:inline-flex;align-items:center;gap:4px;background:rgba(224,200,74,0.12);border:1px solid rgba(224,200,74,0.3);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:900;color:#e0c84a;">💎 50 diamantes</div>
       </div>
 
-      <!-- GRÁTIS -->
-      <div class="game-card" style="border-color:rgba(0,220,80,0.5);" onclick="abrirCobra()">
-        <span class="game-card-emoji">🐍</span>
-        <div class="game-card-name">Jogo da Cobra</div>
-        <div class="game-card-desc">Coma os itens e cresça sem bater nas paredes!</div>
-        <div style="margin-top:8px;display:inline-flex;align-items:center;gap:4px;background:rgba(100,255,150,0.1);border:1px solid rgba(100,255,150,0.3);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:900;color:#4dff88;">✅ Grátis</div>
       </div>
+    </div>
 
-      <div class="game-card memoria" onclick="abrirMemoria()">
+    <!-- SEÇÃO: JOGOS GRÁTIS -->
+    <div class="game-section">
+      <div class="game-section-header">
+        <span class="game-section-icon">🥊</span>
+        <span>Jogos Grátis</span>
+        <div class="game-section-divider"></div>
+      </div>
+      <div class="game-grid">
+
+<div class="game-card memoria" onclick="abrirMemoria()">
         <span class="game-card-emoji">🃏</span>
         <div class="game-card-name">Jogo da Memória</div>
         <div class="game-card-desc">Encontre todos os pares de emoji!</div>
@@ -1048,7 +1084,139 @@ header {
         <div style="margin-top:8px;display:inline-flex;align-items:center;gap:4px;background:rgba(100,255,150,0.1);border:1px solid rgba(100,255,150,0.3);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:900;color:#4dff88;">✅ Grátis</div>
       </div>
 
+      <!-- JOGOS EXTERNOS com capa -->
+      <div class="game-card cover-card" style="border-color:rgba(255,100,100,0.5);" onclick="abrirJogoExterno('https://play.famobi.com/stair-race-3d','🏃 Stair Race 3D')">
+        <img class="game-card-cover-img" src="https://img.cdn.famobi.com/portal/html5games/images/tmp/StairRace3dTeaser.jpg" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" alt="Stair Race 3D">
+        <div class="game-card-cover-fallback" style="display:none;">🏃</div>
+        <div class="game-card-cover-body">
+          <div class="game-card-name">Stair Race 3D</div>
+          <div class="game-card-desc">Suba as escadas mais rápido!</div>
+          <div style="margin-top:4px;display:inline-flex;align-items:center;gap:4px;background:rgba(100,255,150,0.1);border:1px solid rgba(100,255,150,0.3);border-radius:20px;padding:2px 8px;font-size:10px;font-weight:900;color:#4dff88;width:fit-content;">✅ Grátis</div>
+        </div>
+      </div>
+
+      <div class="game-card cover-card" style="border-color:rgba(200,80,255,0.5);" onclick="abrirJogoExterno('https://play.famobi.com/knife-rain','🔪 Knife Rain')">
+        <img class="game-card-cover-img" src="https://img.cdn.famobi.com/portal/html5games/images/tmp/KnifeRainTeaser.jpg" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" alt="Knife Rain">
+        <div class="game-card-cover-fallback" style="display:none;">🔪</div>
+        <div class="game-card-cover-body">
+          <div class="game-card-name">Knife Rain</div>
+          <div class="game-card-desc">Jogue as facas com precisão!</div>
+          <div style="margin-top:4px;display:inline-flex;align-items:center;gap:4px;background:rgba(100,255,150,0.1);border:1px solid rgba(100,255,150,0.3);border-radius:20px;padding:2px 8px;font-size:10px;font-weight:900;color:#4dff88;width:fit-content;">✅ Grátis</div>
+        </div>
+      </div>
+
+      <div class="game-card cover-card" style="border-color:rgba(0,200,100,0.5);" onclick="abrirJogoExterno('https://play.famobi.com/3d-free-kick','⚽ 3D Free Kick')">
+        <img class="game-card-cover-img" src="https://img.cdn.famobi.com/portal/html5games/images/tmp/3dFreeKickTeaser.jpg" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" alt="3D Free Kick">
+        <div class="game-card-cover-fallback" style="display:none;">⚽</div>
+        <div class="game-card-cover-body">
+          <div class="game-card-name">3D Free Kick</div>
+          <div class="game-card-desc">Chute a falta e marque gols!</div>
+          <div style="margin-top:4px;display:inline-flex;align-items:center;gap:4px;background:rgba(100,255,150,0.1);border:1px solid rgba(100,255,150,0.3);border-radius:20px;padding:2px 8px;font-size:10px;font-weight:900;color:#4dff88;width:fit-content;">✅ Grátis</div>
+        </div>
+      </div>
+
+      <div class="game-card cover-card" style="border-color:rgba(255,180,80,0.5);" onclick="abrirJogoExterno('https://play.famobi.com/my-little-dragon','🐉 My Little Dragon')">
+        <img class="game-card-cover-img" src="https://img.cdn.famobi.com/portal/html5games/images/tmp/MyLittleDragonTeaser.jpg" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" alt="My Little Dragon">
+        <div class="game-card-cover-fallback" style="display:none;">🐉</div>
+        <div class="game-card-cover-body">
+          <div class="game-card-name">My Little Dragon</div>
+          <div class="game-card-desc">Cuide do seu dragãozinho!</div>
+          <div style="margin-top:4px;display:inline-flex;align-items:center;gap:4px;background:rgba(100,255,150,0.1);border:1px solid rgba(100,255,150,0.3);border-radius:20px;padding:2px 8px;font-size:10px;font-weight:900;color:#4dff88;width:fit-content;">✅ Grátis</div>
+        </div>
+      </div>
+
+      <div class="game-card cover-card" style="border-color:rgba(80,180,255,0.5);" onclick="abrirJogoExterno('https://yell0wsuit.page/assets/games/subway-surfers/index.html','🛹 Subway Surfers')">
+        <img class="game-card-cover-img" src="data:image/jpeg;base64,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" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" alt="Subway Surfers">
+        <div class="game-card-cover-fallback" style="display:none;">🛹</div>
+        <div class="game-card-cover-body">
+          <div class="game-card-name">Subway Surfers</div>
+          <div class="game-card-desc">Corra e desvie dos trens!</div>
+          <div style="margin-top:4px;display:inline-flex;align-items:center;gap:4px;background:rgba(100,255,150,0.1);border:1px solid rgba(100,255,150,0.3);border-radius:20px;padding:2px 8px;font-size:10px;font-weight:900;color:#4dff88;width:fit-content;">✅ Grátis</div>
+        </div>
+      </div>
+
+      <div class="game-card cover-card" style="border-color:rgba(255,120,60,0.5);" onclick="abrirJogoExterno('https://play.famobi.com/bouncemasters','🐧 Bouncemasters')">
+        <img class="game-card-cover-img" src="https://img.cdn.famobi.com/portal/html5games/images/tmp/BouncemastersTeaser.jpg" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" alt="Bouncemasters">
+        <div class="game-card-cover-fallback" style="display:none;">🐧</div>
+        <div class="game-card-cover-body">
+          <div class="game-card-name">Bouncemasters</div>
+          <div class="game-card-desc">Arremesse o pinguim longe!</div>
+          <div style="margin-top:4px;display:inline-flex;align-items:center;gap:4px;background:rgba(100,255,150,0.1);border:1px solid rgba(100,255,150,0.3);border-radius:20px;padding:2px 8px;font-size:10px;font-weight:900;color:#4dff88;width:fit-content;">✅ Grátis</div>
+        </div>
+      </div>
+
+      <div class="game-card cover-card" style="border-color:rgba(255,220,0,0.5);" onclick="abrirJogoExterno('https://play.famobi.com/emoji-fun','😂 Emoji Fun')">
+        <img class="game-card-cover-img" src="https://img.cdn.famobi.com/portal/html5games/images/tmp/EmojiFunTeaser.jpg" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" alt="Emoji Fun">
+        <div class="game-card-cover-fallback" style="display:none;">😂</div>
+        <div class="game-card-cover-body">
+          <div class="game-card-name">Emoji Fun</div>
+          <div class="game-card-desc">Combine os emojis!</div>
+          <div style="margin-top:4px;display:inline-flex;align-items:center;gap:4px;background:rgba(100,255,150,0.1);border:1px solid rgba(100,255,150,0.3);border-radius:20px;padding:2px 8px;font-size:10px;font-weight:900;color:#4dff88;width:fit-content;">✅ Grátis</div>
+        </div>
+      </div>
+
+      <div class="game-card cover-card" style="border-color:rgba(255,80,80,0.5);" onclick="abrirJogoExterno('https://play.famobi.com/crazy-hen-level','🐔 Crazy Hen')">
+        <img class="game-card-cover-img" src="https://img.cdn.famobi.com/portal/html5games/images/tmp/CrazyHenLevelTeaser.jpg" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" alt="Crazy Hen">
+        <div class="game-card-cover-fallback" style="display:none;">🐔</div>
+        <div class="game-card-cover-body">
+          <div class="game-card-name">Crazy Hen</div>
+          <div class="game-card-desc">Controle a galinha maluca!</div>
+          <div style="margin-top:4px;display:inline-flex;align-items:center;gap:4px;background:rgba(100,255,150,0.1);border:1px solid rgba(100,255,150,0.3);border-radius:20px;padding:2px 8px;font-size:10px;font-weight:900;color:#4dff88;width:fit-content;">✅ Grátis</div>
+        </div>
+      </div>
+
+      <div class="game-card cover-card" style="border-color:rgba(100,220,255,0.5);" onclick="abrirJogoExterno('https://play.famobi.com/pengu-slide','🧊 Pengu Slide')">
+        <img class="game-card-cover-img" src="https://img.cdn.famobi.com/portal/html5games/images/tmp/PenguSlideTeaser.jpg" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" alt="Pengu Slide">
+        <div class="game-card-cover-fallback" style="display:none;">🧊</div>
+        <div class="game-card-cover-body">
+          <div class="game-card-name">Pengu Slide</div>
+          <div class="game-card-desc">Deslize pelo gelo sem cair!</div>
+          <div style="margin-top:4px;display:inline-flex;align-items:center;gap:4px;background:rgba(100,255,150,0.1);border:1px solid rgba(100,255,150,0.3);border-radius:20px;padding:2px 8px;font-size:10px;font-weight:900;color:#4dff88;width:fit-content;">✅ Grátis</div>
+        </div>
+      </div>
+
+      <div class="game-card cover-card" style="border-color:rgba(255,150,0,0.5);" onclick="abrirJogoExterno('https://yell0wsuit.page/assets/games/OmNomRun/index.html','🐸 Om Nom Run')">
+        <img class="game-card-cover-img" src="https://img.cdn.famobi.com/portal/html5games/images/tmp/OmNomRunTeaser.jpg" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" alt="Om Nom Run">
+        <div class="game-card-cover-fallback" style="display:none;">🐸</div>
+        <div class="game-card-cover-body">
+          <div class="game-card-name">Om Nom Run</div>
+          <div class="game-card-desc">Corra e colete doces!</div>
+          <div style="margin-top:4px;display:inline-flex;align-items:center;gap:4px;background:rgba(100,255,150,0.1);border:1px solid rgba(100,255,150,0.3);border-radius:20px;padding:2px 8px;font-size:10px;font-weight:900;color:#4dff88;width:fit-content;">✅ Grátis</div>
+        </div>
+      </div>
+
+      <div class="game-card cover-card" style="border-color:rgba(180,100,255,0.5);" onclick="abrirJogoExterno('https://play.famobi.com/cut-the-rope-2','🍬 Cut the Rope 2')">
+        <img class="game-card-cover-img" src="https://img.cdn.famobi.com/portal/html5games/images/tmp/CutTheRope2Teaser.jpg" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" alt="Cut the Rope 2">
+        <div class="game-card-cover-fallback" style="display:none;">🍬</div>
+        <div class="game-card-cover-body">
+          <div class="game-card-name">Cut the Rope 2</div>
+          <div class="game-card-desc">Corte as cordas e alimente!</div>
+          <div style="margin-top:4px;display:inline-flex;align-items:center;gap:4px;background:rgba(100,255,150,0.1);border:1px solid rgba(100,255,150,0.3);border-radius:20px;padding:2px 8px;font-size:10px;font-weight:900;color:#4dff88;width:fit-content;">✅ Grátis</div>
+        </div>
+      </div>
+
+      <div class="game-card cover-card" style="border-color:rgba(0,200,180,0.5);" onclick="abrirJogoExterno('https://play.famobi.com/table-tennis-world-tour','🏓 Tênis de Mesa')">
+        <img class="game-card-cover-img" src="https://img.cdn.famobi.com/portal/html5games/images/tmp/TableTennisWorldTourTeaser.jpg" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" alt="Table Tennis World Tour">
+        <div class="game-card-cover-fallback" style="display:none;">🏓</div>
+        <div class="game-card-cover-body">
+          <div class="game-card-name">Tênis de Mesa</div>
+          <div class="game-card-desc">Dispute o torneio mundial!</div>
+          <div style="margin-top:4px;display:inline-flex;align-items:center;gap:4px;background:rgba(100,255,150,0.1);border:1px solid rgba(100,255,150,0.3);border-radius:20px;padding:2px 8px;font-size:10px;font-weight:900;color:#4dff88;width:fit-content;">✅ Grátis</div>
+        </div>
+      </div>
+
+      <div class="game-card cover-card" style="border-color:rgba(100,180,255,0.5);" onclick="abrirJogoExterno('https://play.famobi.com/color-water-sort-3d','🎨 Color Water Sort')">
+        <img class="game-card-cover-img" src="https://img.cdn.famobi.com/portal/html5games/images/tmp/ColorWaterSort3dTeaser.jpg" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" alt="Color Water Sort">
+        <div class="game-card-cover-fallback" style="display:none;">🎨</div>
+        <div class="game-card-cover-body">
+          <div class="game-card-name">Color Water Sort</div>
+          <div class="game-card-desc">Organize as cores nos tubos!</div>
+          <div style="margin-top:4px;display:inline-flex;align-items:center;gap:4px;background:rgba(100,255,150,0.1);border:1px solid rgba(100,255,150,0.3);border-radius:20px;padding:2px 8px;font-size:10px;font-weight:900;color:#4dff88;width:fit-content;">✅ Grátis</div>
+        </div>
+      </div>
+      </div>
     </div>
+
   </div>
 </div>
 
@@ -1384,102 +1552,6 @@ header {
 
 </div>
 
-<!-- ===== COBRA FULLSCREEN ===== -->
-<div id="screenCobra" style="display:none; position:fixed; inset:0; z-index:600; background:#000; overflow:hidden; touch-action:none;">
-
-  <!-- Overlay: pede para girar em portrait -->
-  <div id="snakePortraitOverlay">
-    <div class="rot-emoji">📱</div>
-    <div class="rot-txt">Gire o celular<br>para jogar a cobrinha! 🐍</div>
-    <button ontouchstart="event.preventDefault();forcarLandscape()" onclick="forcarLandscape()"
-            style="background:linear-gradient(135deg,#00a832,#4eff88,#00a832);border:none;border-radius:20px;padding:13px 32px;font-family:'Fredoka One',cursive;font-size:18px;color:#001a05;cursor:pointer;box-shadow:0 4px 20px rgba(0,200,60,0.5);">
-      🔄 Girar Tela
-    </button>
-    <button ontouchstart="event.preventDefault();voltarLobbyCobra()" onclick="voltarLobbyCobra()"
-            style="background:#2e2e2e;border:none;border-radius:8px;width:38px;height:38px;font-size:20px;font-weight:900;color:#ff3b3b;cursor:pointer;display:flex;align-items:center;justify-content:center;">
-      &lt;
-    </button>
-  </div>
-
-  <!-- Canvas: jogo ocupa tudo -->
-  <canvas id="snakeCanvas" style="display:block;position:absolute;top:0;left:0;touch-action:none;"></canvas>
-
-  <!-- Botão SAIR: canto superior esquerdo (landscape) -->
-  <button ontouchstart="event.preventDefault();voltarLobbyCobra()" onclick="voltarLobbyCobra()"
-          style="position:absolute;top:14px;left:14px;z-index:100;
-                 background:#2e2e2e;border:none;border-radius:8px;
-                 width:38px;height:38px;font-size:20px;font-weight:900;
-                 color:#ff3b3b;cursor:pointer;display:flex;align-items:center;justify-content:center;
-                 -webkit-tap-highlight-color:transparent;">
-    &lt;
-  </button>
-
-  <!-- Botão PAUSE: canto superior direito (landscape) -->
-  <button ontouchstart="event.preventDefault();pausarCobra()" onclick="pausarCobra()"
-          id="snakePauseBtn"
-          style="position:absolute;top:14px;right:14px;z-index:60;
-                 background:transparent;border:none;
-                 width:40px;height:40px;
-                 font-size:22px;cursor:pointer;
-                 display:flex;align-items:center;justify-content:center;
-                 -webkit-tap-highlight-color:transparent;">
-    ⏸
-  </button>
-
-  <!-- Pontuação: canto superior centro -->
-  <div style="position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:60;pointer-events:none;display:flex;gap:24px;align-items:center;">
-    <div style="display:flex;flex-direction:column;align-items:center;">
-      <div style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.4);letter-spacing:1.5px;text-transform:uppercase;">Pontos</div>
-      <div id="snakeScore" style="font-family:'Fredoka One',cursive;font-size:28px;color:#4eff88;line-height:1;text-shadow:0 0 12px rgba(0,255,100,0.6);">0</div>
-    </div>
-    <div style="display:flex;flex-direction:column;align-items:center;">
-      <div style="font-size:8px;font-weight:700;color:rgba(255,255,255,0.3);letter-spacing:1.5px;text-transform:uppercase;">Recorde</div>
-      <div id="snakeBest" style="font-family:'Fredoka One',cursive;font-size:24px;color:rgba(255,215,0,0.9);line-height:1;">0</div>
-    </div>
-  </div>
-
-  <!-- D-pad: canto inferior direito (landscape) — em cima da zona da morte -->
-  <div id="snakeDpad"
-       style="position:absolute;bottom:0px;right:0px;z-index:60;
-              width:195px;height:195px;
-              user-select:none;-webkit-user-select:none;touch-action:none;">
-
-    <div id="snakeDpadArea"
-         style="position:absolute;inset:0;z-index:10;border-radius:30px;
-                background:rgba(0,0,0,0.0);"
-         ontouchstart="dpadTouch(event)"
-         ontouchmove="dpadTouch(event)"
-         ontouchend="event.preventDefault();dpadLastDir=null"></div>
-
-    <div id="sbUp"   class="dpad-vis" style="top:0;   left:50%;transform:translateX(-50%);border-radius:18px 18px 8px 8px;">▲</div>
-    <div id="sbLeft" class="dpad-vis" style="top:50%;left:0;  transform:translateY(-50%);border-radius:18px 8px 8px 18px;">◀</div>
-    <div id="sbRight"class="dpad-vis" style="top:50%;right:0; transform:translateY(-50%);border-radius:8px 18px 18px 8px;">▶</div>
-    <div id="sbDown" class="dpad-vis" style="bottom:0;left:50%;transform:translateX(-50%);border-radius:8px 8px 18px 18px;">▼</div>
-
-    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-                width:52px;height:52px;border-radius:50%;
-                background:radial-gradient(circle at 40% 35%,#0f2a10,#050d05);
-                border:2px solid rgba(0,220,80,0.25);
-                display:flex;align-items:center;justify-content:center;
-                font-size:22px;pointer-events:none;z-index:5;">🐍</div>
-  </div>
-
-  <!-- Overlay inicio / game over / pause -->
-  <div id="snakeOverlay" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:50;background:rgba(0,0,0,0.85);backdrop-filter:blur(12px);">
-    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;white-space:nowrap;">
-      <div style="font-size:64px;filter:drop-shadow(0 4px 12px rgba(0,255,80,0.3));">🐍</div>
-      <div id="snakeOverlayTitle" style="font-family:'Fredoka One',cursive;font-size:26px;color:#fff;text-shadow:0 2px 10px rgba(0,255,80,0.3);">Jogo da Cobra</div>
-      <div id="snakeOverlayMsg" style="font-size:13px;font-weight:700;color:rgba(255,255,255,0.5);text-align:center;padding:0 28px;line-height:1.8;">Use o D-pad para controlar a cobra!</div>
-      <div style="display:flex;align-items:center;gap:12px;font-size:12px;font-weight:800;margin-bottom:2px;">
-        <span style="color:rgba(255,255,255,0.45);">Custo: <span style="color:#38bdf8;">💎 1 diamante</span></span>
-        <span style="color:rgba(255,255,255,0.2);">|</span>
-        <span style="color:rgba(255,255,255,0.45);">Seus diamantes: <span style="color:#38bdf8;" id="cobradiamCount">0</span></span>
-      </div>
-      <button id="snakeStartBtn" onclick="iniciarCobra()" style="background:linear-gradient(135deg,#00a832,#4eff88,#00a832);background-size:200% 100%;border:none;border-radius:20px;padding:15px 48px;font-family:'Fredoka One',cursive;font-size:22px;color:#001a05;cursor:pointer;box-shadow:0 6px 28px rgba(0,200,60,0.55);-webkit-tap-highlight-color:transparent;">🐍 JOGAR!</button>
-    </div>
-  </div>
-
-</div><!-- fim #screenCobra -->
 
 <!-- ===== ENTREGADOR FULLSCREEN ===== -->
 <div id="screenEntregador" class="game-fullscreen" style="background:#111;">
@@ -1930,12 +2002,10 @@ function atualizarTodaUI() {
   document.getElementById('moedaCount').textContent  = fmt(moedas);
   const fsR = document.getElementById('fsRoletaTickets');
   const fsF = document.getElementById('fsFogueteTickets');
-  const cdc = document.getElementById('cobradiamCount');
   const mdc = document.getElementById('memDiamCount');
   const edc = document.getElementById('entDiamCount');
   if (fsR) fsR.textContent = fmt(tickets);
   if (fsF) fsF.textContent = fmt(tickets);
-  if (cdc) cdc.textContent = fmt(moedas);
   if (mdc) mdc.textContent = fmt(moedas);
   if (edc) edc.textContent = fmt(moedas);
 }
@@ -2339,7 +2409,6 @@ function toast(msg){
 const JOGOS_VOLTAR = {
   roleta:      () => voltarLobby(),
   foguete:     () => voltarLobbyFoguete(),
-  cobra:       () => voltarLobbyCobra(),
   memoria:     () => voltarLobbyMemoria(),
   entregador:  () => voltarLobbyEntregador(),
   minado:      () => voltarLobbyMinado(),
@@ -3204,575 +3273,8 @@ function atualizarTicketFogueteUI() {
   if (tickets > 0) btn.disabled = false;
 }
 
-// ============================================================
-// 🐍 JOGO DA COBRA
-// ============================================================
-let snakeRunning   = false;
-let snakePaused    = false;
-let snakeLoop      = null;
-let snakeRafId     = null;
-let snakeBody      = [];
-let snakeDir       = { x: 1, y: 0 };
-let snakeNextDirs  = []; // fila de inputs — garante que nenhum clique é perdido
-let snakeFood      = { x: 0, y: 0 };
-let snakeGoldenFood = null; // maçã dourada (null = não existe no momento)
-let snakeAppleCount = 0;    // contador de maçãs comidas para spawnar dourada
-let snakeCurScore  = 0;
-let snakeBestScore = 0;
-let snakeCols      = 20;
-let snakeRows      = 20;
-let snakeCellSize  = 20;
-let snakeSC        = null;
-let snakeCTX       = null;
-let snakeSpeed     = 150;
-const SNAKE_BORDER = 1; // 1 célula de borda = parede de morte
 
-// ── ZONA DE TOQUE DO D-PAD ───────────────────────────────────
-// A área 210×210 é dividida em 9 zonas (grade 3×3).
-// As zonas laterais e topo/base ativam UP/DOWN/LEFT/RIGHT.
-// O centro e diagonais ignoram.
-let dpadLastDir = null;
-function dpadTouch(e) {
-  e.preventDefault();
-  const touch = e.touches[0] || e.changedTouches[0];
-  const area  = document.getElementById('snakeDpadArea');
-  const rect  = area.getBoundingClientRect();
-
-  const rx = (touch.clientX - rect.left)  / rect.width;   // 0..1 (esquerda→direita)
-  const ry = (touch.clientY - rect.top)   / rect.height;  // 0..1 (cima→baixo)
-
-  // Zonas EXPANDIDAS: maior área de toque
-  // Zona CIMA:    ry < 0.42
-  // Zona BAIXO:   ry > 0.58
-  // Zona ESQ:     rx < 0.42
-  // Zona DIR:     rx > 0.58
-
-  let dir = null;
-  const L = 0.42, R = 0.58, T = 0.42, B = 0.58;
-
-  if (ry < T && rx > L && rx < R)       dir = 'UP';
-  else if (ry > B && rx > L && rx < R)  dir = 'DOWN';
-  else if (rx < L && ry > T && ry < B)  dir = 'LEFT';
-  else if (rx > R && ry > T && ry < B)  dir = 'RIGHT';
-  // Cantos: eixo dominante decide
-  else if (rx < L && ry < T) dir = (L-rx) > (T-ry) ? 'LEFT' : 'UP';
-  else if (rx > R && ry < T) dir = (rx-R) > (T-ry) ? 'RIGHT': 'UP';
-  else if (rx < L && ry > B) dir = (L-rx) > (ry-B) ? 'LEFT' : 'DOWN';
-  else if (rx > R && ry > B) dir = (rx-R) > (ry-B) ? 'RIGHT': 'DOWN';
-
-  if (dir && dir !== dpadLastDir) {
-    dpadLastDir = dir;
-    snakeQueueDir(dir);
-  }
-}
-
-function snakeBtnFeedback(dir) {
-  const ids = { UP:'sbUp', DOWN:'sbDown', LEFT:'sbLeft', RIGHT:'sbRight' };
-  // Limpa todos
-  ['sbUp','sbDown','sbLeft','sbRight'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.classList.remove('active');
-  });
-  const btn = document.getElementById(ids[dir]);
-  if (!btn) return;
-  // Define o offset visual por direção (simula pressão)
-  const offsets = {
-    UP:    '--tx:0px;--ty:-2px',
-    DOWN:  '--tx:0px;--ty:2px',
-    LEFT:  '--tx:-2px;--ty:0px',
-    RIGHT: '--tx:2px;--ty:0px'
-  };
-  btn.style.cssText += ';' + offsets[dir];
-  btn.classList.add('active');
-  setTimeout(() => {
-    btn.classList.remove('active');
-    btn.style.cssText = btn.style.cssText.replace(/;?--t[xy]:[^;]+/g, '');
-  }, 130);
-}
-// Aceita até 4 inputs na fila. Valida 180° contra o ÚLTIMO item
-// da fila (não contra o dir atual), então o clique na metade do
-// passo é sempre guardado e executado no próximo tick.
-function snakeQueueDir(dir) {
-  if (snakePaused) return;
-  const map = { UP:{x:0,y:-1}, DOWN:{x:0,y:1}, LEFT:{x:-1,y:0}, RIGHT:{x:1,y:0} };
-  const d = map[dir];
-  if (!d) return;
-  const ref = snakeNextDirs.length > 0
-    ? snakeNextDirs[snakeNextDirs.length - 1]
-    : snakeDir;
-  if (d.x === -ref.x && d.y === -ref.y) return; // proibe 180°
-  if (d.x === ref.x  && d.y === ref.y)  return; // mesma dir, ignora duplicata
-  if (snakeNextDirs.length < 4) snakeNextDirs.push(d);
-  
-  // Inicia o jogo no primeiro movimento
-  if (!snakeRunning) {
-    snakeRunning = true;
-    clearInterval(snakeLoop);
-    snakeLoop = setInterval(stepCobra, snakeSpeed);
-  }
-  
-  // Feedback visual no botão
-  snakeBtnFeedback(dir);
-}
-
-// ── ABERTURA / FECHAMENTO ────────────────────────────────────
-function abrirCobra() {
-  pushHistoryJogo('cobra');
-  const screenCobra = document.getElementById('screenCobra');
-  screenCobra.style.display = 'block';
-  document.body.classList.add('cobra-aberta');
-  snakeSC  = document.getElementById('snakeCanvas');
-  snakeCTX = snakeSC.getContext('2d');
-
-  // Ativar fullscreen (simples e compatível)
-  try {
-    const requestFullscreen = screenCobra.requestFullscreen || 
-                             screenCobra.webkitRequestFullscreen || 
-                             screenCobra.mozRequestFullScreen || 
-                             screenCobra.msRequestFullscreen;
-    if (requestFullscreen) {
-      requestFullscreen.call(screenCobra);
-    }
-  } catch (err) {
-    console.log('Fullscreen não disponível:', err);
-  }
-
-  setTimeout(() => {
-    configurarGrade(window.innerWidth, window.innerHeight);
-    mostrarOverlayCobra('🐍 Jogo da Cobra', 'Use o D-pad para controlar a cobra!', 'JOGAR!');
-    if (snakeRafId) cancelAnimationFrame(snakeRafId);
-    snakeRafLoop();
-  }, 60);
-
-  window.addEventListener('resize', _snakeResize);
-}
-
-function _snakeResize() {
-  configurarGrade(window.innerWidth, window.innerHeight);
-}
-
-function voltarLobbyCobra() {
-  pararCobra();
-  document.getElementById('screenCobra').style.display = 'none';
-  document.body.classList.remove('cobra-aberta');
-  // Volta a travar em portrait ao sair da cobra
-  if (screen.orientation && screen.orientation.lock) {
-    screen.orientation.lock('portrait').catch(() => {});
-  }
-  window.removeEventListener('resize', _snakeResize);
-  
-  // Sair do fullscreen (simples e compatível)
-  try {
-    const exitFullscreen = document.exitFullscreen || 
-                          document.webkitExitFullscreen || 
-                          document.mozCancelFullScreen || 
-                          document.msExitFullscreen;
-    if (exitFullscreen && (document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement)) {
-      exitFullscreen.call(document);
-    }
-  } catch (err) {
-    console.log('Erro ao sair do fullscreen:', err);
-  }
-}
-
-function configurarGrade(w, h) {
-  snakeSC.width        = w;
-  snakeSC.height       = h;
-  snakeSC.style.width  = w + 'px';
-  snakeSC.style.height = h + 'px';
-  snakeSC.style.top    = '0';
-  snakeSC.style.left   = '0';
-  snakeSC.style.transform = '';
-
-  snakeCellSize = 18;
-  if (snakeCellSize < 10) snakeCellSize = 10;
-  snakeCols = Math.floor(w / snakeCellSize);
-  snakeRows = Math.floor(h / snakeCellSize);
-
-  // Centraliza o D-pad em cima da zona da morte (canto inferior direito)
-  const zoneW = 12 * snakeCellSize;
-  const zoneH = 11 * snakeCellSize;
-  const dpad  = document.getElementById('snakeDpad');
-  const dpadW = dpad.offsetWidth  || 195;
-  const dpadH = dpad.offsetHeight || 195;
-  dpad.style.right  = Math.max(0, Math.round((zoneW - dpadW) / 2)) + 'px';
-  dpad.style.bottom = Math.max(0, Math.round((zoneH - dpadH) / 2) + snakeCellSize) + 'px';
-
-  if (!snakeRunning) desenharCobra();
-}
-
-// ── RAF LOOP ─────────────────────────────────────────────────
-function snakeRafLoop() {
-  desenharCobra();
-  if (document.getElementById('screenCobra').style.display !== 'none') {
-    snakeRafId = requestAnimationFrame(snakeRafLoop);
-  }
-}
-
-// ── OVERLAY ──────────────────────────────────────────────────
-function mostrarOverlayCobra(titulo, msg, btnTxt) {
-  document.getElementById('snakeOverlayTitle').textContent = titulo;
-  document.getElementById('snakeOverlayMsg').innerHTML = msg.replace(/\n/g,'<br>');
-  document.getElementById('snakeStartBtn').textContent = '🐍 ' + btnTxt;
-  document.getElementById('snakeStartBtn').onclick = iniciarCobra;
-  document.getElementById('snakeOverlay').style.display = 'flex';
-}
-
-// ── INICIAR ───────────────────────────────────────────────────
-function iniciarCobra() {
-  // Desconta diamante ao clicar em Jogar
-  if (moedas < 1) { toast('😢 Sem diamantes! Jogue outros jogos para ganhar.'); return; }
-  moedas--;
-  deductDiamante();
-  document.getElementById('moedaCount').textContent = fmt(moedas);
-  const cdc = document.getElementById('cobradiamCount');
-  if (cdc) cdc.textContent = fmt(moedas);
-
-  document.getElementById('snakeOverlay').style.display = 'none';
-  snakeCurScore  = 0;
-  snakePaused    = false;
-  snakeSpeed     = 160;
-  snakeNextDirs  = [];
-  snakeGoldenFood = null;
-  snakeAppleCount = 0;
-  document.getElementById('snakeScore').textContent = '0';
-  document.getElementById('snakeBest').textContent  = snakeBestScore;
-  document.getElementById('snakePauseBtn').textContent = '⏸';
-
-  const midX = Math.floor(snakeCols / 2);
-  const midY = Math.floor(snakeRows / 2);
-  snakeBody = [
-    { x: midX,     y: midY },
-    { x: midX - 1, y: midY },
-    { x: midX - 2, y: midY }
-  ];
-  snakeDir = { x: 1, y: 0 };
-  spawnFood();
-  snakeRunning = false;  // Espera o primeiro movimento
-  clearInterval(snakeLoop);
-  if (snakeRafId) cancelAnimationFrame(snakeRafId);
-  snakeRafLoop();
-}
-
-// ── PAUSAR ────────────────────────────────────────────────────
-function pausarCobra() {
-  if (!snakeRunning) return;
-  if (snakePaused) {
-    snakePaused = false;
-    document.getElementById('snakePauseBtn').textContent = '⏸';
-    document.getElementById('snakeOverlay').style.display = 'none';
-    clearInterval(snakeLoop);
-    snakeLoop = setInterval(stepCobra, snakeSpeed);
-    if (snakeRafId) cancelAnimationFrame(snakeRafId);
-    snakeRafLoop();
-  } else {
-    snakePaused = true;
-    clearInterval(snakeLoop);
-    if (snakeRafId) { cancelAnimationFrame(snakeRafId); snakeRafId = null; }
-    document.getElementById('snakePauseBtn').textContent = '▶';
-    document.getElementById('snakeOverlayTitle').textContent = '⏸ Pausado';
-    document.getElementById('snakeOverlayMsg').textContent = 'Toque em continuar para retomar';
-    document.getElementById('snakeStartBtn').textContent = '▶ Continuar';
-    document.getElementById('snakeStartBtn').onclick = pausarCobra;
-    document.getElementById('snakeOverlay').style.display = 'flex';
-  }
-}
-
-// ── PARAR ────────────────────────────────────────────────────
-function pararCobra() {
-  snakeRunning = false;
-  snakePaused  = false;
-  clearInterval(snakeLoop);
-  if (snakeRafId) { cancelAnimationFrame(snakeRafId); snakeRafId = null; }
-}
-
-// ── SPAWN COMIDA ─────────────────────────────────────────────
-function spawnFood() {
-  let pos, tries = 0;
-  const deathStartX = snakeCols - 12;
-  const deathStartY = snakeRows - 11;
-  // Range restrito: exclui completamente a zona da morte
-  const maxX = deathStartX - 1;
-  const maxY = snakeRows - 1;
-  
-  do {
-    // Gera X fora da zona (0 até deathStartX-1)
-    // Gera Y: se X está na faixa da zona, limita Y acima da zona; senão Y livre
-    const rx = Math.floor(Math.random() * deathStartX); // sempre fora horizontalmente
-    const ryMax = snakeRows - 1;
-    pos = {
-      x: rx,
-      y: Math.floor(Math.random() * (ryMax + 1))
-    };
-    tries++;
-  } while (tries < 500 && (
-    snakeBody.some(s => s.x === pos.x && s.y === pos.y) ||
-    (snakeGoldenFood && pos.x === snakeGoldenFood.x && pos.y === snakeGoldenFood.y)
-  ));
-  snakeFood = pos;
-
-  // A cada ~10 maçãs normais spawna uma dourada
-  snakeAppleCount++;
-  if (snakeAppleCount >= 7 + Math.floor(Math.random() * 7)) {
-    snakeAppleCount = 0;
-    spawnGoldenFood();
-  }
-}
-
-function spawnGoldenFood() {
-  let pos, tries = 0;
-  const deathStartX = snakeCols - 12;
-  const deathStartY = snakeRows - 11;
-  do {
-    const rx = Math.floor(Math.random() * deathStartX);
-    pos = {
-      x: rx,
-      y: Math.floor(Math.random() * snakeRows)
-    };
-    tries++;
-  } while (tries < 500 && (
-    snakeBody.some(s => s.x === pos.x && s.y === pos.y) ||
-    (pos.x === snakeFood.x && pos.y === snakeFood.y)
-  ));
-  snakeGoldenFood = pos;
-}
-
-// ── STEP ─────────────────────────────────────────────────────
-function stepCobra() {
-  // Consome próxima direção da fila
-  if (snakeNextDirs.length > 0) snakeDir = snakeNextDirs.shift();
-
-  let head = { x: snakeBody[0].x + snakeDir.x, y: snakeBody[0].y + snakeDir.y };
-
-  // ── ZONA VERDE PORTAL (12x11 na parte inferior DIREITA) ──────
-  const CONTROL_START_X = snakeCols - 12;
-  const CONTROL_END_X   = snakeCols;
-  const CONTROL_START_Y = snakeRows - 11;
-  const CONTROL_END_Y   = snakeRows;
-  
-  const inControlZone = (pos) => pos.x >= CONTROL_START_X && pos.x < CONTROL_END_X && 
-                                  pos.y >= CONTROL_START_Y && pos.y < CONTROL_END_Y;
-  
-  const headInZone = inControlZone(head);
-  const bodyInZone = inControlZone(snakeBody[0]);
-  
-  // Se ENTROU na zona (corpo fora, cabeça dentro), faz o wrap-around
-  // ZONA INFERIOR DIREITA: entradas possíveis por CIMA e pelo lado ESQUERDO
-  if (!bodyInZone && headInZone) {
-    // Entrou por CIMA (movendo para baixo = y:+1) → sai pela ESQUERDA
-    if (snakeDir.y === 1) {
-      head.x = CONTROL_START_X - 1;  // Sai FORA da zona, à esquerda
-      head.y = snakeBody[0].y;        // Mantém o bloco vertical
-    }
-    // Entrou pelo lado ESQUERDO (movendo para direita = x:+1) → sai por CIMA
-    else if (snakeDir.x === 1) {
-      head.x = snakeBody[0].x;        // Mantém o bloco horizontal
-      head.y = CONTROL_START_Y - 1;   // Sai FORA da zona, acima
-    }
-  }
-
-  // Colisão com borda - cobra só morre ao sair completamente
-  if (head.x < 0 || head.x >= snakeCols - 0 ||
-      head.y < 0  || head.y >= snakeRows - 0) {
-    gameOverCobra(); return;
-  }
-  
-  // Colisão com zona verde de controle (12x12)
-  if (head.x >= CONTROL_START_X && head.x < CONTROL_END_X &&
-      head.y >= CONTROL_START_Y && head.y < CONTROL_END_Y) {
-    gameOverCobra(); return;
-  }
-  
-  // Colisão consigo mesma
-  if (snakeBody.some(s => s.x === head.x && s.y === head.y)) {
-    gameOverCobra(); return;
-  }
-
-  snakeBody.unshift(head);
-
-  if (head.x === snakeFood.x && head.y === snakeFood.y) {
-    snakeCurScore++;
-    document.getElementById('snakeScore').textContent = snakeCurScore;
-    somCobraComeu();
-    spawnFood();
-  } else if (snakeGoldenFood && head.x === snakeGoldenFood.x && head.y === snakeGoldenFood.y) {
-    // Maçã dourada vale 3 pontos
-    snakeCurScore += 3;
-    document.getElementById('snakeScore').textContent = snakeCurScore;
-    somCobraComeu();
-    snakeGoldenFood = null;
-    // Cresce 3 segmentos (não remove o rabo 3x)
-    snakeBody.push({...snakeBody[snakeBody.length-1]});
-    snakeBody.push({...snakeBody[snakeBody.length-1]});
-  } else {
-    snakeBody.pop();
-  }
-}
-
-// ── DESENHAR ─────────────────────────────────────────────────
-function desenharCobra() {
-  if (!snakeCTX || !snakeSC) return;
-  const ctx = snakeCTX;
-  const cs  = snakeCellSize;
-  const W   = snakeSC.width;
-  const H   = snakeSC.height;
-  const b   = SNAKE_BORDER;
-  const t   = Date.now();
-
-  // Fundo
-  ctx.fillStyle = '#010d03';
-  ctx.fillRect(0, 0, W, H);
-
-  // Faixa ESQUERDA
-  ctx.fillStyle = 'rgba(50,200,50,0.4)';
-  ctx.fillRect(0, 0, 0 * cs, H);
-
-  // Faixa DIREITA
-  ctx.fillRect(W - 0 * cs, 0, 0 * cs, H);
-
-  // Faixa TOPO
-  ctx.fillRect(0, 0, W, 0 * cs);
-
-  // Faixa BASE
-  ctx.fillRect(0, (snakeRows - 0) * cs,
-               W, H - (snakeRows - 0) * cs);
-
-  // Grade da área de jogo
-  ctx.strokeStyle = 'rgba(0,180,50,0.05)';
-  ctx.lineWidth   = 0.5;
-  for (let x = b; x <= snakeCols - b; x++) {
-    ctx.beginPath(); ctx.moveTo(x*cs, b*cs); ctx.lineTo(x*cs, H - b*cs); ctx.stroke();
-  }
-  for (let y = b; y <= snakeRows - b; y++) {
-    ctx.beginPath(); ctx.moveTo(b*cs, y*cs); ctx.lineTo(W - b*cs, y*cs); ctx.stroke();
-  }
-
-  // ── ZONA VERDE SEGURA (12x11 células na parte inferior DIREITA) ──
-  const controlStartX = snakeCols - 12;
-  const controlEndX   = snakeCols;
-  const controlStartY = snakeRows - 11;
-  const controlEndY   = snakeRows;
-  
-  // Preenche toda a zona com verde (verde verde verde!)
-  ctx.fillStyle = 'rgba(50,200,50,0.6)';
-  ctx.fillRect(controlStartX * cs, controlStartY * cs, (controlEndX - controlStartX) * cs, (controlEndY - controlStartY) * cs);
-  
-  // Borda em verde mais brilhante
-  ctx.strokeStyle = 'rgba(100,255,100,0.8)';
-  ctx.lineWidth = 3;
-  ctx.strokeRect(controlStartX * cs, controlStartY * cs, (controlEndX - controlStartX) * cs, (controlEndY - controlStartY) * cs);
-
-  // Comida — maçã normal
-  if (snakeBody.length > 0 || !snakeRunning) {
-    const fx = snakeFood.x * cs + cs / 2;
-    const fy = snakeFood.y * cs + cs / 2;
-    const fp = 0.88 + 0.12 * Math.sin(t / 170);
-    ctx.save();
-    ctx.font = `${cs * 0.85 * fp}px serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('🍎', fx, fy);
-    ctx.restore();
-  }
-
-  // Maçã dourada (+3) com brilho pulsante
-  if (snakeGoldenFood) {
-    const gx = snakeGoldenFood.x * cs + cs / 2;
-    const gy = snakeGoldenFood.y * cs + cs / 2;
-    const gp = 0.85 + 0.15 * Math.sin(t / 120);
-    // Brilho dourado atrás
-    ctx.save();
-    ctx.shadowColor = 'rgba(255,215,0,0.9)';
-    ctx.shadowBlur  = 10 + 6 * Math.sin(t / 120);
-    ctx.font = `${cs * 0.88 * gp}px serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('🍏', gx, gy);
-    ctx.shadowBlur = 0;
-    // +3 acima da maçã
-    ctx.font = `bold ${cs * 0.42}px 'Fredoka One',cursive`;
-    ctx.fillStyle = '#FFD700';
-    ctx.strokeStyle = 'rgba(0,0,0,0.8)';
-    ctx.lineWidth = 3;
-    ctx.strokeText('+3', gx + cs * 0.6, gy - cs * 0.5);
-    ctx.fillText('+3', gx + cs * 0.6, gy - cs * 0.5);
-    ctx.restore();
-  }
-
-  // Cobra
-  snakeBody.forEach((seg, i) => {
-    const px = seg.x * cs, py = seg.y * cs;
-    const pad = i === 0 ? 1 : 2;
-    const r   = (cs / 2 - pad) * 0.55;
-
-    if (i === 0) {
-      // Cabeça
-      const g = ctx.createRadialGradient(px+cs*.4, py+cs*.35, 0, px+cs/2, py+cs/2, cs/2-pad);
-      g.addColorStop(0,   '#b0ffb0');
-      g.addColorStop(0.45,'#00dd55');
-      g.addColorStop(1,   '#004a18');
-      ctx.beginPath(); ctx.roundRect(px+pad, py+pad, cs-pad*2, cs-pad*2, r);
-      ctx.fillStyle = g; ctx.fill();
-      // Brilho cabeça
-      ctx.beginPath(); ctx.ellipse(px+cs*.38, py+cs*.32, cs*.15, cs*.09, -0.4, 0, Math.PI*2);
-      ctx.fillStyle = 'rgba(200,255,200,0.3)'; ctx.fill();
-      // Olhos
-      const eo = cs * 0.2, er = cs * 0.1;
-      [
-        { ex: px+cs/2 + snakeDir.y*eo - snakeDir.x*eo*.5, ey: py+cs/2 + snakeDir.x*eo - snakeDir.y*eo*.5 },
-        { ex: px+cs/2 - snakeDir.y*eo - snakeDir.x*eo*.5, ey: py+cs/2 - snakeDir.x*eo - snakeDir.y*eo*.5 }
-      ].forEach(e => {
-        ctx.beginPath(); ctx.arc(e.ex, e.ey, er, 0, Math.PI*2);
-        ctx.fillStyle = '#ffffff'; ctx.fill();
-        ctx.beginPath(); ctx.arc(e.ex+snakeDir.x*er*.4, e.ey+snakeDir.y*er*.4, er*.52, 0, Math.PI*2);
-        ctx.fillStyle = '#111'; ctx.fill();
-        // brilhinho olho
-        ctx.beginPath(); ctx.arc(e.ex+snakeDir.x*er*.1-er*.2, e.ey+snakeDir.y*er*.1-er*.2, er*.2, 0, Math.PI*2);
-        ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.fill();
-      });
-    } else {
-      const ratio = i / snakeBody.length;
-      const gr = Math.floor(195 - ratio * 100);
-      const g2 = ctx.createLinearGradient(px, py, px+cs, py+cs);
-      g2.addColorStop(0, `rgba(0,${gr},45,1)`);
-      g2.addColorStop(1, `rgba(0,${Math.max(0,gr-55)},15,1)`);
-      ctx.beginPath(); ctx.roundRect(px+pad, py+pad, cs-pad*2, cs-pad*2, r);
-      ctx.fillStyle = g2; ctx.fill();
-      // escama sutil
-      if (cs >= 14) {
-        ctx.beginPath(); ctx.ellipse(px+cs*.38, py+cs*.32, cs*.13, cs*.07, -0.4, 0, Math.PI*2);
-        ctx.fillStyle = `rgba(255,255,255,${0.06 - ratio*0.05})`; ctx.fill();
-      }
-    }
-  });
-}
-
-// ── GAME OVER ────────────────────────────────────────────────
-function gameOverCobra() {
-  pararCobra();
-  if (snakeCurScore > snakeBestScore) snakeBestScore = snakeCurScore;
-  document.getElementById('snakeBest').textContent = snakeBestScore;
-  somGameOver();
-  snakeRafLoop(); // continua animando borda
-  mostrarOverlayCobra('💀 Game Over!',
-    `Pontuação: ${snakeCurScore}  |  Recorde: ${snakeBestScore}`,
-    'Jogar de Novo!');
-}
-
-// ── SONS ─────────────────────────────────────────────────────
-function somCobraComeu() {
-  try {
-    const ac = getAudio();
-    const o = ac.createOscillator(), g = ac.createGain();
-    o.connect(g); g.connect(ac.destination);
-    o.type = 'sine';
-    o.frequency.setValueAtTime(520, ac.currentTime);
-    o.frequency.exponentialRampToValueAtTime(900, ac.currentTime + 0.1);
-    g.gain.setValueAtTime(0.09, ac.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.13);
-    o.start(); o.stop(ac.currentTime + 0.13);
-  } catch(e){}
-}
+// ── SONS ─────────────────────────────────────────────────────}
 
 function somGameOver() {
   try {
@@ -4394,13 +3896,6 @@ document.addEventListener('keydown', e => {
   if (e.key==='ArrowRight'||e.key==='d') { entPlayer.tx=Math.min(entRoadX+entRoadW-entPlayer.w,entPlayer.tx+entLaneW); }
   if (e.key==='ArrowUp'||e.key==='w') { entPlayer.ty=Math.max(60,entPlayer.ty-40); }
   if (e.key==='ArrowDown'||e.key==='s') { entPlayer.ty=Math.min(entH-entPlayer.h-10,entPlayer.ty+40); }
-});
-
-// Teclado (desktop cobra)
-document.addEventListener('keydown', e => {
-  const map = { ArrowUp:'UP', ArrowDown:'DOWN', ArrowLeft:'LEFT', ArrowRight:'RIGHT', w:'UP', s:'DOWN', a:'LEFT', d:'RIGHT' };
-  if (map[e.key]) { e.preventDefault(); snakeQueueDir(map[e.key]); }
-  if (e.key === 'Escape' || e.key === 'p') pausarCobra();
 });
 
 // ============================================================
@@ -6152,6 +5647,55 @@ const _cardCM=document.getElementById('cardCoxinhaManImg');
 if(_cardCM) _cardCM.src=_COXINHA_SRC;
 for(let i=0;i<4;i++){const _c=document.getElementById('copoCoxinha'+i);if(_c)_c.src=_COXINHA_SRC;}
 
+</script>
+
+<!-- ===== JOGO EXTERNO FULLSCREEN ===== -->
+<div id="screenJogoExterno" style="
+  display:none; position:fixed; inset:0; z-index:600;
+  background:#000; flex-direction:column; overflow:hidden;">
+
+  <!-- Barra topo -->
+  <div style="
+    position:absolute; top:0; left:0; right:0; z-index:20;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 16px 10px;
+    background:linear-gradient(180deg,rgba(0,0,0,0.85) 0%,transparent 100%);
+    pointer-events:none;">
+    <button id="jogoExternoBackBtn" onclick="fecharJogoExterno()" style="
+      pointer-events:all;
+      display:flex; align-items:center; justify-content:center;
+      width:38px; height:38px;
+      background:#2e2e2e; border:none; border-radius:8px;
+      color:#ff3b3b; font-size:20px; font-weight:900; cursor:pointer;
+      -webkit-tap-highlight-color:transparent;">✕</button>
+    <span id="jogoExternoTitulo" style="
+      pointer-events:none;
+      font-family:'Fredoka One',cursive; font-size:16px;
+      color:white; text-shadow:0 2px 8px rgba(0,0,0,0.8);
+      letter-spacing:0.5px;"></span>
+    <div style="width:38px;"></div>
+  </div>
+
+  <!-- iframe ocupa tudo -->
+  <iframe id="jogoExternoIframe"
+    src="about:blank"
+    style="flex:1; border:none; width:100%; height:100%;"
+    allow="autoplay; fullscreen"
+    allowfullscreen></iframe>
+</div>
+
+<script>
+function abrirJogoExterno(url, nome) {
+  window.open(url, '_blank');
+}
+
+function fecharJogoExterno() {
+  const screen = document.getElementById('screenJogoExterno');
+  const iframe  = document.getElementById('jogoExternoIframe');
+  screen.style.display = 'none';
+  iframe.src = 'about:blank';
+  document.body.style.overflow = '';
+}
 </script>
 </body>
 </html>
